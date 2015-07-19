@@ -1,0 +1,23 @@
+{
+  "name": "FLAnalyzer",
+  "description": "FLAnalyzer是一款针对竞彩足球的数据采集、分析程序。",
+  "version": "0.1.0",
+  "private": true,
+  "author": {
+    "name": "Swfdong",
+    "email": "swfdong@gmail.com",
+    "url": "http://weibo.com/swfdong"
+  },
+  "dependencies": {
+    "brain": "^0.7.0",
+    "cheerio": "^0.18.0",
+    "colors": "^1.1.0",
+    "eventproxy": "^0.3.2",
+    "lodash": "^2.4.1",
+    "mongoose": "^3.8.10",
+    "needle": "^0.8.0",
+    "tracer": "^0.7.3",
+    "validator": "^3.27.0",
+    "xml2js": "^0.4.4"
+  }
+}
