@@ -16,8 +16,8 @@ module.exports = {
       'spf':'rqspf'
     },
     HOA: {
-      1: '主场',
-      2: '客场'
+      1: 'home',
+      2: 'away'
     }
   }
 };

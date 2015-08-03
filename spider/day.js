@@ -1,5 +1,5 @@
-var needle      = require('needle'),
-    colors      = require('colors'),
+var _           = require('lodash'),
+    needle      = require('needle'),
     cheerio     = require("cheerio"),
     eventproxy  = require('eventproxy'),
     logger      = require('tracer').console();
@@ -7,19 +7,21 @@ var needle      = require('needle'),
 var time        = require('../utils/time'),
     converter   = require('../utils/converter'),
     parser      = require('../utils/parser'),
-    printer     = require('../utils/printer');
+    printer     = require('../printer').spider.day(),
+    helper      = require('./helper');
 
 var DICT        = require('../configs/spider').dict;
 
-var Match       = require('../models/match');
-var Game        = require('../models/game');
-var Team        = require('../models/team');
+var Match       = require('../models/match'),
+    Game        = require('../models/game'),
+    Team        = require('../models/team');
+
 
 //URL
 var URL = {
   odds:"http://odds.500.com/index_jczq_{day}.shtml",
   score:'http://zx.500.com/jczq/kaijiang.php?d={day}',
-  jingcai:'http://trade.500.com/jczq/inc/readfile.php?step=readpl&zxid={iid}&wtype={type}&date={day}&g=2',
+  jingcai_odds:'http://trade.500.com/jczq/inc/readfile.php?step=readpl&zxid={iid}&wtype={type}&date={day}&g=2',
   live:'http://live.500.com/?e={day}',
   trade:'http://trade.500.com/static/500public/jczq/xml/hisdata/{yyyy}/{mm}{dd}/hcount_354.xml',
   trade_today:'http://trade.500.com/static/500public/jczq/xml/hcount/hcount_354.xml',
@@ -33,27 +35,16 @@ var TODAY = converter.dateToString(new Date(Date.now()));
 module.exports = function (day, next, force){
   var day_arr = day.split('-'),
       data    = { gameCount:0, teamCount:0, bwinCount:0, match:{}, shortcut:{}, iid:{}, hid:{}, aid:{}, home:{}, away:{}, game:{}, team:{} },
-      ep      = new eventproxy(),
-      retry   = 0;
+      ep      = new eventproxy();
 
   //处理抓取错误
-  var done = function (step){
-    return function (error, response) {
-      if (error){
-        ep.unbind();
-        console.error('数据抓取出错，错误信息为：'.red);
-        console.error(String(error).grey);
-        console.error('准备重新抓取...');
-        //自动重试
-        return next(day,false,true);
-      }else{
-        step(response);
-      }
-    }
-  }
+  var retry = function (){
+    next(day,false,true);
+  },
+  done = helper.done(ep,retry,printer);
 
-  printer.header('正在抓取'+day+'的比赛数据...');
-  needle.defaults({ open_timeout:5000, read_timeout:10000, json:true, headers:{'X-Requested-With': 'XMLHttpRequest', 'Accept-Encoding': 'gzip, deflate, sdch'}});
+  printer.header(day);
+  needle.defaults({ open_timeout:5000, read_timeout:15000, json:true, headers:{'X-Requested-With': 'XMLHttpRequest', 'Accept-Encoding': 'gzip, deflate, sdch'}});
 
   //赔率数据
   var oddsStep = function (response) {
@@ -70,7 +61,7 @@ module.exports = function (day, next, force){
     });
     //不安全的方法，执行抓取到页面中的脚本，获取对应的赔率数组
     eval(script);
-
+    var list = [{l:ouzhiList||{},d:DICT.OUZHI,o:'europe'},{l:yapanList||{},d:DICT.YAPAN,o:'asia'}];
     var tr = $('#main-tbody tr[data-mid]');
     //如果没有数据则跳过
     if(tr.length === 0){
@@ -92,51 +83,32 @@ module.exports = function (day, next, force){
       obj.game.name = parser.trim($(this).find('td').eq(1).text());
       obj.game.gid  = parser.int($(this).attr('data-mid'));
       obj.home.name = parser.trim(home.text());
-      obj.home.tid  = parser.int(home.find('a').attr("href").match("http://liansai.500.com/team/([0-9]+)/")[1]);
+      obj.home.tid  = parser.tid(home);
       obj.away.name = parser.trim(away.text());
-      obj.away.tid  = parser.int(away.find('a').attr("href").match("http://liansai.500.com/team/([0-9]+)/")[1]);
+      obj.away.tid  = parser.tid(away);
 
-      //更新赔率
-      var j,current;
-      if(ouzhiList[mid]){
-        for(j=0;j<DICT.OUZHI.length;j++){
-          current = DICT.OUZHI[j];
-          if(ouzhiList[mid][current.id]){
-            obj.odds.europe[current.name] = {};
-            obj.odds.europe[current.name].now = [ouzhiList[mid][current.id][0][0]||0,ouzhiList[mid][current.id][0][1]||0,ouzhiList[mid][current.id][0][2]||0];
-            obj.odds.europe[current.name].first = [ouzhiList[mid][current.id][1][0]||0,ouzhiList[mid][current.id][1][1]||0,ouzhiList[mid][current.id][1][2]||0];
+      //更新各家赔率
+      var j,current,co;
+      list.forEach(function (cl,ci,ca){
+        if(cl.l[mid]){
+          for(j=0;j<cl.d.length;j++){
+            current = cl.d[j];
+            co = cl.l[mid][current.id];
+            if(co){
+              obj.odds[cl.o][current.name] = {
+                now: [co[0][0]||0,co[0][1]||0,co[0][2]||0],
+                first: [co[1][0]||0,co[1][1]||0,co[1][2]||0]
+              };
+            }
           }
         }
-      }
-      if(yapanList[mid]){
-        for(j=0;j<DICT.YAPAN.length;j++){
-          current = DICT.YAPAN[j];
-          if(yapanList[mid][current.id]){
-            obj.odds.asia[current.name] = {};
-            obj.odds.asia[current.name].now = [yapanList[mid][current.id][0][0]||0,yapanList[mid][current.id][0][1]||0,yapanList[mid][current.id][0][2]||0];
-            obj.odds.asia[current.name].first = [yapanList[mid][current.id][1][0]||0,yapanList[mid][current.id][1][1]||0,yapanList[mid][current.id][1][2]||0];
-          }
-        }
-      }
-
-      data.match[mid] = obj;
-      data.hid[obj.home.tid] = obj;
-      data.aid[obj.away.tid] = obj;
-      data.shortcut[obj.shortcut] = obj;
-      if(data.game[obj.game.gid]===undefined){
-        data.game[obj.game.gid] = obj.game;
-        data.gameCount++;
-      }
-      if(data.team[obj.home.tid]===undefined){
-        data.team[obj.home.tid] = obj.home;
-        data.teamCount++;
-      }
-      if(data.team[obj.away.tid]===undefined){
-        data.team[obj.away.tid] = obj.away;
-        data.teamCount++;
-      }
+      });
+      data.match[mid] = data.hid[obj.home.tid] = data.aid[obj.away.tid] = data.shortcut[obj.shortcut] = obj;
+      helper.intake(data,obj);
     });
-    console.log(' √ 基本信息'.dim.grey);
+    //释放可能导致内存泄露的对象
+    ouzhiList = yapanList = null;
+    printer.done('odds');
     needle.get(URL.score.replace('{day}',day), done(scoreStep));
   };
 
@@ -147,8 +119,8 @@ module.exports = function (day, next, force){
     var tr = $('table.ld_table > tr:not(:first-child)');
     tr.each(function (i,elm) {
       var shortcut = $(this).find('td').eq(0).text(),
-          hid      = parser.int($(this).find('td').eq(3).find('a').attr('href').replace('http://liansai.500.com/team/','').replace('/')),
-          aid      = parser.int($(this).find('td').eq(5).find('a').attr('href').replace('http://liansai.500.com/team/','').replace('/')),
+          hid      = parser.tid($(this).find('td').eq(3)),
+          aid      = parser.tid($(this).find('td').eq(5)),
           obj      = data.shortcut[shortcut]||data.hid[hid]||data.aid[aid];
       if(obj){
         obj.jingcai.rq =parser.int($(this).find('td.eng').eq(1).text());
@@ -181,7 +153,7 @@ module.exports = function (day, next, force){
         }
       }
     });
-    console.log(' √ 半全场比分'.dim.grey);
+    printer.done('score');
     needle.get(URL.live.replace('{day}',day), done(liveStep));
   }
 
@@ -199,7 +171,9 @@ module.exports = function (day, next, force){
     });
     //不安全的方法，执行抓取到页面中的脚本，获取对应的赔率数组
     eval(script);
-
+    if(!liveOddsList){
+      var liveOddsList ={};
+    }
     var tr = $('#table_match tr[fid]');
     if(tr.length>0 && tr.length<data.count){
       data.count = tr.length;
@@ -227,7 +201,7 @@ module.exports = function (day, next, force){
           obj.neutral = true;
         }
         //如果有竞彩赔率数据
-        if(liveOddsList&&liveOddsList[mid]!==undefined){
+        if(liveOddsList[mid]!==undefined){
           if(liveOddsList[mid].rqsp&&jcQuery.dict[obj.iid]%2!==1){
             jcQuery.dict[obj.iid] += 1;
             jcQuery.list.push({type:'spf',obj:obj});
@@ -259,7 +233,7 @@ module.exports = function (day, next, force){
         data.away[obj.away.fullname] = obj;
       }
     });
-    console.log(' √ 比赛详情'.dim.grey);
+    printer.done('live');
     checkDone();
   }
 
@@ -278,13 +252,13 @@ module.exports = function (day, next, force){
         return next(day,alldone);
       }else{
         rl = jcQuery.list.length;
-        jingcaiLoop();
+        jingcaiOddsLoop();
       }
     }));
   }
   var rl;
   //抓取竞彩赔率数据
-  var jingcaiLoop = function (){
+  var jingcaiOddsLoop = function (){
     var ql;
     if(rl>5){
       rl -= 5;
@@ -296,10 +270,10 @@ module.exports = function (day, next, force){
       return preTradeStep();
     }
     //竞彩赔率抓取完成
-    ep.after('jingcai',ql,function(){
+    ep.after('jingcaiOdds',ql,function(){
       ep.unbind();
       if(rl>0){
-        jingcaiLoop();
+        jingcaiOddsLoop();
       }else{
         console.log(' √ 竞彩赔率'.dim.grey);
         return preTradeStep();
@@ -308,30 +282,25 @@ module.exports = function (day, next, force){
     //抓取竞彩赔率数据
     for(var j = 0; j<ql; j++){
       var q = jcQuery.list.pop();
-      needle.get(URL.jingcai.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), done(jingcaiStep(q)));
+      needle.get(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), done(jingcaiOddsStep(q)));
     }
   }
-  var jingcaiStep = function (query){
+  var jingcaiOddsStep = function (query){
     return function (response) {
-      try{
-        var odds = JSON.parse(response.body);
-      }catch (err) {
-        console.error('JSON解析出错，错误信息为：'.red);
-        console.error(String(err).grey);
-        console.error('准备重新抓取...');
-        return next(true);
-      }
-      var obj = query.obj;
-      var last = null;
-      obj.jingcai[DICT.JINGCAI[query.type]] = [];
-      for(var i = 0; i < odds.length; i++){
-        //去掉重复赔率变化（早期数据可能出现此问题）
-        if(!(last&&(odds[i].time === last.time && odds[i].win === last.win && odds[i].draw === last.draw && odds[i].lost === last.lost))){
-          obj.jingcai[DICT.JINGCAI[query.type]].push({sp:[parser.number(odds[i].win),parser.number(odds[i].draw),parser.number(odds[i].lost)], time: new Date(odds[i].time) });
+      var odds = helper.json(response.body,retry,printer);
+      if(odds){
+        var obj = query.obj;
+        var last = null;
+        obj.jingcai[DICT.JINGCAI[query.type]] = [];
+        for(var i = 0; i < odds.length; i++){
+          //去掉重复赔率变化（早期数据可能出现此问题）
+          if(!(last&&(odds[i].time === last.time && odds[i].win === last.win && odds[i].draw === last.draw && odds[i].lost === last.lost))){
+            obj.jingcai[DICT.JINGCAI[query.type]].push({sp:[parser.number(odds[i].win),parser.number(odds[i].draw),parser.number(odds[i].lost)], time: new Date(odds[i].time) });
+          }
+          last = odds[i];
         }
-        last = odds[i];
       }
-      ep.emit('jingcai');
+      ep.emit('jingcaiOdds');
     }
   }
 
@@ -397,45 +366,33 @@ module.exports = function (day, next, force){
           var score = parser.trim($(this).find('tr').eq(1).find('td').eq(0).text()).split('-');
           obj.score.full.home = parser.int(score[0]);
           obj.score.full.away = parser.int(score[1]);
-          console.log('已在必发数据中找到缺失的比分：',obj.home.name,'VS',obj.away.name,' - ',score[0],':',score[1]);
         }
       }
     });
-    console.log(' √ 必发盈亏'.dim.grey);
+    printer.done('bwin');
     saveAll();
   };
   var saveAll = function (){
     //保存事件响应
     ep.after('match', data.count, function () {
-      printer.line();
-      console.log('共'+data.teamCount+'支参赛球队');
-      for(var k in data.team){
-        saveTeam(data.team[k]);
-      }
+      printer.count('team',data.teamCount);
+      _.forEach(data.team,saveTeam);
     });
     ep.after('team', data.teamCount, function () {
-      printer.line();
-      console.log('共'+data.gameCount+'种赛事');
-      for(var q in data.game){
-        saveGame(data.game[q]);
-      }
+      printer.count('game',data.gameCount);
+      _.forEach(data.game,saveGame);
     });
     ep.after('game', data.gameCount, function () {
       return next(day);
     });
     ep.fail(function (err){
       ep.unbind();
-      console.error('数据库操作出错，错误信息为：'.red);
-      console.error(String(err).grey);
-      console.error('准备重新抓取...');
-      return next(day,false,true);
+      printer.error('mongo',err);
+      return retry();
     });
 
-    printer.line();
-    console.log('共'+data.count+'场比赛，抓取必发数据'+data.bwinCount+'场');
-    for(var mid in data.match){
-      saveMatch(data.match[mid]);
-    }
+    printer.count('match',data.count);
+    _.forEach(data.match,saveMatch);
   }
   //保存比赛
   var saveMatch = function (obj){
@@ -443,8 +400,8 @@ module.exports = function (day, next, force){
       //如果没有，则创建
       if(!m){
         m = new Match(obj);
-        m.save(ep.done('match', function (){
-          console.log(' •'.red, obj.shortcut.grey, obj.home.name+(obj.neutral?'(中)'.dim.red:''),'VS'.grey, obj.away.name);
+        m.save(ep.done('match', function (o){
+          printer.save(o);
         }));
       //如果已存在比赛
       }else{
@@ -464,8 +421,8 @@ module.exports = function (day, next, force){
           m.card  = obj.card;
           m.done  = obj.done;
         }
-        m.save(ep.done('match', function (){
-          console.log(' •'.green, obj.shortcut.grey, obj.home.name+(obj.neutral?'(中)'.dim.red:''),'VS'.grey, obj.away.name);
+        m.save(ep.done('match', function (o){
+          printer.save(o,true);
         }));
       }
     }));
@@ -475,8 +432,8 @@ module.exports = function (day, next, force){
       //如果没有，则创建
       if(!m){
         m = new Game(obj);
-        m.save(ep.done('game', function (){
-          console.log(' •'.red,obj.name+('/'+obj.gid).dim.gray);
+        m.save(ep.done('game', function (o){
+          printer.save(o);
         }));
       }else{
         ep.emit('game');
@@ -488,8 +445,8 @@ module.exports = function (day, next, force){
       //如果没有，则创建
       if(!m){
         m = new Team(obj);
-        m.save(ep.done('team', function (){
-          console.log(' •'.red,obj.name+('/'+obj.fullname).gray+('/'+obj.tid).dim.gray);
+        m.save(ep.done('team', function (o){
+          printer.save(o);
         }));
       }else{
         m.updated = false;

@@ -7,13 +7,14 @@ var needle      = require('needle'),
 var time        = require('../utils/time'),
     converter   = require('../utils/converter'),
     parser      = require('../utils/parser'),
-    printer     = require('../utils/printer');
+    printer     = require('../printer').spider.team(),
+    helper      = require('./helper');
 
 var DICT        = require('../configs/spider').dict;
 
-var Match       = require('../models/match');
-var Game        = require('../models/game');
-var Team        = require('../models/team');
+var Match       = require('../models/match'),
+    Game        = require('../models/game'),
+    Team        = require('../models/team');
 
 //URL
 var URL = {
@@ -27,40 +28,21 @@ module.exports = function (team, next){
       data  = { count:0, gameCount:0, teamCount:0, match:{}, game:{}, team:{} },
       ep    = new eventproxy();
   //处理抓取错误
-  var done = function (step){
-    return function (error, response) {
-      if (error){
-        ep.unbind();
-        console.error('数据抓取出错，错误信息为：'.red);
-        console.error(String(error).grey);
-        console.error('准备重新抓取...');
-        return next(true);
-      }else{
-        step(response);
-      }
-    }
-  }
-
-  printer.header('正在抓取'+team.name+('('+team.tid+')').grey+'的比赛数据...');
+  var retry = function (){
+    next(true);
+  },
+  done = helper.done(ep,retry,printer);
+  printer.header(team);
 
   //抓取赛事基本信息
   var matchesStep = function (response) {
-    try{
-      var body = JSON.parse(response.body);
-    }catch (err) {
-      console.error('JSON解析出错，错误信息为：'.red);
-      console.error(String(err).grey);
-      console.error('准备重新抓取...');
-      return next(true);
-    }
+    var body = helper.json(response.body,retry,printer);
     if(!body.list){
-      logger.error(team.name,'数据抓取出错，没有数据！');
       return next();
     }
     var matches = body.list;
     var fids = [];
 
-    console.log(('抓取到'+HOA_DICT[hoa]+'比赛'+matches.length+'场').grey);
     data.count += matches.length;
     for(var i = 0; i< matches.length; i++){
       var current = matches[i];
@@ -109,56 +91,33 @@ module.exports = function (team, next){
         data.count--;
       }
       data.match[obj.mid] = obj;
-      if(data.game[obj.game.gid]===undefined){
-        data.game[obj.game.gid] = obj.game;
-        data.gameCount++;
-      }
-      if(data.team[obj.home.tid]===undefined){
-        data.team[obj.home.tid] = obj.home;
-        data.teamCount++;
-      }
-      if(data.team[obj.away.tid]===undefined){
-        data.team[obj.away.tid] = obj.away;
-        data.teamCount++;
-      }
+      helper.intake(data,obj);
     }
     //抓取赔率完成
     ep.after('odds', DICT.OUZHI.length, function () {
+      printer.done(DICT.HOA[hoa]);
       //是否主客场都已抓取完毕
       if(hoa ==2){
         //保存事件响应
         ep.after('match', data.count, function () {
-          printer.line();
-          console.log('共'+data.teamCount+'支球队');
-          for(var k in data.team){
-            saveTeam(data.team[k]);
-          }
+          printer.count('team',data.teamCount);
+          _.forEach(data.team,saveTeam);
         });
         ep.after('team', data.teamCount, function () {
-          printer.line();
-          console.log('共'+data.gameCount+'种赛事');
-          for(var q in data.game){
-            saveGame(data.game[q]);
-          }
+          printer.count('game',data.gameCount);
+          _.forEach(data.game,saveGame);
         });
         ep.after('game', data.gameCount, function () {
-          console.error('数据写入完毕'.grey);
           return next();
         });
         ep.fail(function (err){
           ep.unbind();
-          console.error('数据库操作出错，错误信息为：'.red);
-          console.error(String(err).grey);
-          console.error('准备重新抓取...');
-          return next(true);
+          printer.error('mongo',err);
+          return retry();
         });
-
         //保存数据
-        printer.line();
-        console.log('共'+data.count+'场比赛');
-        for(var q in data.match){
-          saveMatch(data.match[q]);
-        }
+        printer.count('match',data.count);
+        _.forEach(data.match,saveMatch);
       }else{
         hoa++;
         needle.get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), done(matchesStep));
@@ -172,19 +131,12 @@ module.exports = function (team, next){
   //抓取指定公司的赔率数据
   var oddsStep = function (cid) {
     return function (response) {
-      try{
-        var body = JSON.parse(response.body);
-      }catch (err) {
-        console.error('JSON解析出错，错误信息为：'.red);
-        console.error(String(err).grey);
-        console.error('准备重新抓取...');
-        return next(true);
-      }
+      var body = helper.json(response.body,retry,printer);
       if(body.list){
         var odds = body.list;
         for(var i = 0; i< odds.length; i++){
           var current = odds[i];
-          var obj = data.match[parser.int(current.FIXTUREID)]
+          var obj = data.match[parser.int(current.FIXTUREID)];
           obj.odds.europe[cid.name] = {now:[parser.number(current.WIN),parser.number(current.DRAW),parser.number(current.LOST)]};
         }
       }
@@ -197,20 +149,19 @@ module.exports = function (team, next){
     Match.getMatchById(obj.mid, ep.done(function (m){
       //只更新没有记录的比赛
       if(!m){
-        m = new Match(obj);
         //如果有比分数据才写入
         if(obj.score.full){
-          m.save(ep.done('match', function (){
-            console.log(' •'.red, obj.date.grey, obj.home.name,'VS'.grey, obj.away.name, ('('+obj.score.full.home+':'+obj.score.full.away+')').grey);
+          m = new Match(obj);
+          m.save(ep.done('match', function (o){
+            printer.save(o);
           }));
         }else{
-          console.log(' •'.grey, obj.date.grey, obj.home.name,'VS'.grey, obj.away.name, '没有比分，已跳过'.grey);
           ep.emit('match');
         }
       }else if(!m.score.full&&obj&&obj.score.full){
         m.score = obj.score;
-        m.save(ep.done('match', function (){
-          console.log(' •'.green, obj.date.grey, obj.home.name,'VS'.grey, obj.away.name, ('('+obj.score.full.home+':'+obj.score.full.away+')').grey);
+        m.save(ep.done('match', function (o){
+          printer.save(o,true);
         }));
       }else{
         ep.emit('match');
@@ -222,13 +173,13 @@ module.exports = function (team, next){
       //如果没有，则创建
       if(!m){
         m = new Game(obj);
-        m.save(ep.done('game', function (){
-          console.log(' •'.red,obj.name+('/'+obj.fullname).gray+('/'+obj.gid).dim.gray);
+        m.save(ep.done('game', function (o){
+          printer.save(o);
         }));
       }else if(!m.fullname){
         m.fullname = obj.fullname;
-        m.save(ep.done('game', function (){
-          console.log(' •'.green,obj.name+('/'+obj.fullname).gray+('/'+obj.gid).dim.gray);
+        m.save(ep.done('game', function (o){
+          printer.save(o,true);
         }));
       }else{
         ep.emit('game');
@@ -237,11 +188,10 @@ module.exports = function (team, next){
   };
   var saveTeam = function (obj){
     Team.getTeamById(obj.tid, ep.done(function (m){
-      //如果没有，则创建
       if(!m){
         m = new Team(obj);
-        m.save(ep.done('team', function (){
-          console.log(' •'.red,obj.name+('/'+obj.tid).dim.gray);
+        m.save(ep.done('team', function (o){
+          printer.save(o);
         }));
       }else if(m.tid === team.tid){
         m.updated = true;

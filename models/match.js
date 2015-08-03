@@ -41,6 +41,8 @@ var MatchSchema = new Schema({
   },
   //国内竞彩
   jingcai:{
+    //是否开售单关
+    single: { type: Boolean, default: false },
     //[胜平负]赔率：[主胜，平局，客胜]，变赔时间
     spf: [{ sp:[ Number ], time: Date }],
     //成交量：[主胜，平局，客胜]

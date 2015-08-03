@@ -7,14 +7,14 @@ var time        = require('../utils/time'),
     converter   = require('../utils/converter'),
     printer     = require('../utils/printer');
     
-var daySpider   = require('./day');
-var teamSpider  = require('./team');
+var daySpider   = require('./day'),
+    teamSpider  = require('./team');
 
-var Match       = require('../models/match');
-var Team        = require('../models/team');
-var Game        = require('../models/game');
+var Match       = require('../models/match'),
+    Team        = require('../models/team'),
+    Game        = require('../models/game');
 
-var FIRST_DATE  = '2009-11-17';
+var FIRST_DATE  = require('../configs/spider').first_date;
 //var FIRST_DATE = '2015-07-14';
 
 mongoose.connect(dbconfig.url);
