@@ -41,14 +41,26 @@ var MatchSchema = new Schema({
   },
   //国内竞彩
   jingcai:{
-    //[胜平负]赔率：[主胜，平局，客胜]，变赔时间
-    spf: [{ sp:[ Number ], time: Date }],
-    //成交量：[主胜，平局，客胜]
-    trade:[ Number ],
-    //让球数
-    rq: Number,
-    //[让球胜平负]赔率：[主胜，平局，客胜]，变赔时间
-    rqspf: [{ sp:[ Number ], time: Date }],
+    //胜平负
+    spf: {
+      //是否开售单关
+      //single: { type: Boolean, default: false },
+      //成交量：[主胜，平局，客胜]
+      trade:[ Number ],
+      //赔率：[主胜，平局，客胜]，变赔时间
+      sp:[{ data:[ Number ], time: Date }]
+    },
+    //让球胜平负
+    rqspf: {
+      //让球数
+      rq: Number,
+      //是否开售单关
+      //single: { type: Boolean, default: false },
+      //成交量：[主胜，平局，客胜]
+      trade:[ Number ],
+      //赔率：[主胜，平局，客胜]，变赔时间
+      sp:[{ data:[ Number ], time: Date }]
+    }
   },
   //必发盈亏
   bwin: [ Number ],

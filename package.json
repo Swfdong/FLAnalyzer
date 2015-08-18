@@ -1,7 +1,7 @@
 {
   "name": "FLAnalyzer",
-  "description": "FLAnalyzer是一款针对竞彩足球的数据采集、分析程序。",
-  "version": "0.1.0",
+  "description": "FLAnalyzer 是一款基于Node.js的竞彩足球赛事数据采集、分析程序。",
+  "version": "0.2.0",
   "private": true,
   "author": {
     "name": "Swfdong",
@@ -10,14 +10,26 @@
   },
   "dependencies": {
     "brain": "^0.7.0",
-    "cheerio": "^0.18.0",
+    "cheerio": "^0.19.0",
     "colors": "^1.1.0",
     "eventproxy": "^0.3.2",
-    "lodash": "^2.4.1",
-    "mongoose": "^3.8.10",
+    "jetty": "^0.2.1",
+    "lodash": "^2.4.2",
+    "mongoose": "^4.1.1",
     "needle": "^0.8.0",
-    "tracer": "^0.7.3",
     "validator": "^3.27.0",
     "xml2js": "^0.4.4"
+  },
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-concurrent": "^0.5.0",
+    "grunt-contrib-concat": "^0.4.0",
+    "grunt-contrib-copy": "^0.5.0",
+    "grunt-contrib-cssmin": "^0.13.0",
+    "grunt-contrib-jshint": "^0.11.2",
+    "grunt-contrib-less": "^1.0.1",
+    "grunt-contrib-uglify": "^0.9.1",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-node-inspector": "^0.2.0"
   }
 }

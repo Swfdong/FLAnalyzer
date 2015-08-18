@@ -1,0 +1,8 @@
+{
+  "name": "FLAnalyzer",
+  "version": "0.2.0",
+  "private": true,
+  "dependencies": {
+    "jquery": "~2.1.4"
+  }
+}
