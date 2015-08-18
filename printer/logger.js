@@ -1,23 +1,28 @@
 var _           = require('lodash'),
     util        = require('util'),
     colors      = require('colors'),
-    Jetty       = require('jetty');
+    ansi        = require('ansi'),
+    cursor      = ansi(process.stdout);
 
-var jetty = new Jetty(process.stdout);
 
 var progressBar = function (cur,total,str){
   var len = 20;
   var progress = Math.min(len,Math.ceil(cur/total*len));
-  jetty.text(' '+(new Array(progress+1).join('█')).grey+(new Array(len+1-progress).join('█')).dim.grey+' '+(cur+'/'+total).grey+(str?str:'').dim.grey+'\r');
+  cursor.horizontalAbsolute(0).eraseLine().write(' '+(new Array(progress+1).join('█')).grey+(new Array(len+1-progress).join('█')).dim.grey+' '+(cur+'/'+total).grey+(str?str:'').dim.grey);
 }
 
 module.exports    = function(logger){
+  var isLastLineError = false;
   //clearline用于长时间抓取的进度显示准备工作，
   //进度显示仅在终端显示时输出，如logger为第三方日志库不会写入日志。
   var clearline   = function(){};
   if(logger === console){
     clearline = function(after){
-      jetty.clearLine();
+      if(isLastLineError){
+        cursor.previousLine().eraseLine().previousLine().eraseLine();
+        isLastLineError = false;
+      }
+      cursor.horizontalAbsolute(0).eraseLine();
       if(after){
         after();
       }
@@ -54,7 +59,7 @@ module.exports    = function(logger){
       };
       if(dict[type]){
         line(true);
-        logger.log(dict[type].replace('%d',String(num)));
+        logger.log(' '+dict[type].replace('%d',String(num)));
       }
     },
     progress: function (type,current,total,str){
@@ -73,7 +78,7 @@ module.exports    = function(logger){
         logger.log(dot[update], data.name+(data.fullname?('/'+data.fullname).gray:'')+('/'+data.gid).dim.gray);
       }
     },
-    error: function (type,err,url){
+    error: function (type,err){
       var dict = {
         needle:  '数据抓取',
         mongo:   '数据库操作',
@@ -81,16 +86,13 @@ module.exports    = function(logger){
       };
       if(dict[type]){
         clearline();
-        logger.error((dict[type]+'出错，错误信息为：').red+String(err).grey);
-        if(url){
-          logger.error('重新请求内容：'.grey+url.dim.grey);
-        }else{
-          logger.error('重新抓取数据...');
-        }
+        isLastLineError = true;
+        logger.error(' '+(dict[type]+'出错，错误信息为：').red+String(err).grey);
+        logger.error(' 重新请求内容...');
       }
     },
     obj: function (obj){
-      logger.log(util.inspect(obj, false, null));
+      logger.log(JSON.stringify(obj,'','  '));
     }
   };
   return {

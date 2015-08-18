@@ -17,7 +17,7 @@ exports.get = function(printer){
     needle.get(url, function (err,response){
       //出错自动重试
       if (err){
-        printer.error('needle',err,url);
+        printer.error('needle',err);
         _.delay(function(){
           handler(url,step)
         },1000);

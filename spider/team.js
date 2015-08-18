@@ -202,5 +202,5 @@ module.exports = function (team, next){
       }
     }));
   };
-  needle.get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), done(matchesStep));
+  get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
 }

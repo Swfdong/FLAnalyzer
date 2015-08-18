@@ -9,11 +9,11 @@
     "url": "http://weibo.com/swfdong"
   },
   "dependencies": {
+    "ansi": "^0.3.0",
     "brain": "^0.7.0",
     "cheerio": "^0.19.0",
     "colors": "^1.1.0",
     "eventproxy": "^0.3.2",
-    "jetty": "^0.2.1",
     "lodash": "^2.4.2",
     "mongoose": "^4.1.1",
     "needle": "^0.8.0",

@@ -267,7 +267,7 @@ module.exports = function (day, next, force){
       ql = Math.min(4,rl);
       rl -= ql;
     }else{
-      return preTradeStep();
+      return jingcaiTradeLoop();
     }
     //竞彩赔率抓取完成
     ep.after('jingcaiOdds',ql,function(){
@@ -315,8 +315,8 @@ module.exports = function (day, next, force){
   var jingcaiTradeStep = function (response) {
     var $ = cheerio.load(response.body);
     var block = $('.leftMain .block');
-    //当天没有数据、抓满了、抓完了
-    if(block.length === 0||data.count === data.tradeCount||$('.leftMain .block .blockTit a').eq(0).text() === lt){
+    //当天没有数据或已抓到最后一页
+    if(block.length === 0||$('.leftMain .block .blockTit a').eq(0).text() === lt){
       var flag = 2;
       if(h<1){
         h++;
@@ -425,22 +425,7 @@ module.exports = function (day, next, force){
         }));
       //如果已存在比赛
       }else{
-        m.date    = obj.date;
-        m.odds    = obj.odds;
-        m.iid     = obj.iid;
-        m.neutral = obj.neutral;
-        if(obj.bwin){
-          m.bwin = obj.bwin;
-        }
-        if(obj.jingcai){
-          m.jingcai = obj.jingcai;
-        }
-        //已完赛更新分数
-        if(!m.done && obj.done){
-          m.score = obj.score;
-          m.card  = obj.card;
-          m.done  = obj.done;
-        }
+        _.assign(m,obj);
         m.save(ep.done('match', function (o){
           printer.save(o,true);
         }));
