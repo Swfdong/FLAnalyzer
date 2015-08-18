@@ -1,12 +1,12 @@
 exports.tomorrow = function (dt,n){
   dt = new Date(dt);
-  dt.setDate(dt.getDate()+(n||1));
+  dt.setDate(dt.getDate()+(n===undefined?1:n));
   return dt;
 }
 
 exports.yesterday = function (dt,n){
   dt = new Date(dt);
-  dt.setDate(dt.getDate()-(n||1));
+  dt.setDate(dt.getDate()-(n===undefined?1:n));
   return dt;
 }
 

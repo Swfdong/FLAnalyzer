@@ -1,8 +1,7 @@
 var needle      = require('needle'),
     colors      = require('colors'),
     cheerio     = require("cheerio"),
-    eventproxy  = require('eventproxy'),
-    logger      = require('tracer').console();
+    eventproxy  = require('eventproxy');
 
 var time        = require('../utils/time'),
     converter   = require('../utils/converter'),
@@ -30,8 +29,10 @@ module.exports = function (team, next){
   //处理抓取错误
   var retry = function (){
     next(true);
+    //防止多次调用
+    retry = function(){};
   },
-  done = helper.done(ep,retry,printer);
+  get = helper.get(printer);
   printer.header(team);
 
   //抓取赛事基本信息
@@ -120,12 +121,12 @@ module.exports = function (team, next){
         _.forEach(data.match,saveMatch);
       }else{
         hoa++;
-        needle.get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), done(matchesStep));
+        get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
       }
     });
     //抓取赔率
     for(var j = 0; j < DICT.OUZHI.length; j++){
-      needle.get(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), done(oddsStep(DICT.OUZHI[j])));
+      get(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
     }
   }
   //抓取指定公司的赔率数据

@@ -1,7 +1,28 @@
 var _           = require('lodash'),
-    colors      = require('colors');
+    util        = require('util'),
+    colors      = require('colors'),
+    Jetty       = require('jetty');
+
+var jetty = new Jetty(process.stdout);
+
+var progressBar = function (cur,total,str){
+  var len = 20;
+  var progress = Math.min(len,Math.ceil(cur/total*len));
+  jetty.text(' '+(new Array(progress+1).join('█')).grey+(new Array(len+1-progress).join('█')).dim.grey+' '+(cur+'/'+total).grey+(str?str:'').dim.grey+'\r');
+}
 
 module.exports    = function(logger){
+  //clearline用于长时间抓取的进度显示准备工作，
+  //进度显示仅在终端显示时输出，如logger为第三方日志库不会写入日志。
+  var clearline   = function(){};
+  if(logger === console){
+    clearline = function(after){
+      jetty.clearLine();
+      if(after){
+        after();
+      }
+    }
+  }
   var line        = function(grey){
     if(grey){
       logger.log('——————————————————————————————————————————————'.dim.grey);
@@ -14,8 +35,8 @@ module.exports    = function(logger){
       odds:   '基本信息',
       score:  '半全场比分',
       live:   '红黄牌',
-      jcOdds: '竞彩赔率',
-      jcTrade:'竞彩成交量',
+      jcOdds: '竞彩赔率 ',
+      jcTrade:'竞彩成交量 ',
       bwin:   '必发数据'
     },
     team: {
@@ -36,6 +57,11 @@ module.exports    = function(logger){
         logger.log(dict[type].replace('%d',String(num)));
       }
     },
+    progress: function (type,current,total,str){
+      clearline(function(){
+        progressBar(current,total,str);
+      });
+    },
     save: function (data,update){
       update = update||false;
       var dot = { false: ' •'.red, true:' •'.green };
@@ -47,17 +73,24 @@ module.exports    = function(logger){
         logger.log(dot[update], data.name+(data.fullname?('/'+data.fullname).gray:'')+('/'+data.gid).dim.gray);
       }
     },
-    error: function (type,err){
+    error: function (type,err,url){
       var dict = {
         needle:  '数据抓取',
         mongo:   '数据库操作',
         json:    'JSON解析'
       };
       if(dict[type]){
-        logger.error((dict[type]+'出错，错误信息为：').red);
-        logger.error(String(err).grey);
-        logger.error('准备重新抓取...');
+        clearline();
+        logger.error((dict[type]+'出错，错误信息为：').red+String(err).grey);
+        if(url){
+          logger.error('重新请求内容：'.grey+url.dim.grey);
+        }else{
+          logger.error('重新抓取数据...');
+        }
       }
+    },
+    obj: function (obj){
+      logger.log(util.inspect(obj, false, null));
     }
   };
   return {
@@ -66,6 +99,7 @@ module.exports    = function(logger){
         return _.assign({
           done: function (type){
             if(spider_done.day[type]){
+              clearline();
               logger.log((' √ '+spider_done.day[type]).dim.grey);
             }
           },

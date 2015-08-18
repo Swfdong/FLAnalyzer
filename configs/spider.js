@@ -18,6 +18,10 @@ module.exports = {
     HOA: {
       1: 'home',
       2: 'away'
-    }
+    },
+    HAD: [
+      {type:'had',name:'spf'},
+      {type:'hhad',name:'rqspf'}
+    ]
   }
 };

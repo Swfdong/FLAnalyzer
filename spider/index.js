@@ -1,5 +1,4 @@
 var mongoose    = require('mongoose'),
-    logger      = require('tracer').console(),
     eventproxy  = require('eventproxy');
 
 var dbconfig    = require('../configs/database');
@@ -27,6 +26,7 @@ module.exports = function (force){
       timestamp = Date.now(),
       now       = new Date(Date.now()),
       start     = converter.dateToString(new Date(Date.now()));
+      //start = '2015-08-16'
   //clear();
   // 如果时间在早上10点之前，live.500.com有可能抓不到当天数据，故向前推一天
   // if(now.getHours()<10){

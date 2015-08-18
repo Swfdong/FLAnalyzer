@@ -1,8 +1,7 @@
 var _           = require('lodash'),
     needle      = require('needle'),
     cheerio     = require("cheerio"),
-    eventproxy  = require('eventproxy'),
-    logger      = require('tracer').console();
+    eventproxy  = require('eventproxy');
 
 var time        = require('../utils/time'),
     converter   = require('../utils/converter'),
@@ -21,10 +20,9 @@ var Match       = require('../models/match'),
 var URL = {
   odds:"http://odds.500.com/index_jczq_{day}.shtml",
   score:'http://zx.500.com/jczq/kaijiang.php?d={day}',
-  jingcai_odds:'http://trade.500.com/jczq/inc/readfile.php?step=readpl&zxid={iid}&wtype={type}&date={day}&g=2',
   live:'http://live.500.com/?e={day}',
-  trade:'http://trade.500.com/static/500public/jczq/xml/hisdata/{yyyy}/{mm}{dd}/hcount_354.xml',
-  trade_today:'http://trade.500.com/static/500public/jczq/xml/hcount/hcount_354.xml',
+  jingcai_odds:'http://trade.500.com/jczq/inc/readfile.php?step=readpl&zxid={iid}&wtype={type}&date={day}&g=2',
+  jingcai_trade:'http://info.sporttery.cn/basketball/vote/fb_vote.php?&num={day}&type={type}&page={page}',
   bwin:'http://www.310win.com/info/match/Betfair.aspx?date={day}'
   
 };
@@ -34,24 +32,25 @@ var TODAY = converter.dateToString(new Date(Date.now()));
 //抓某一日数据
 module.exports = function (day, next, force){
   var day_arr = day.split('-'),
-      data    = { gameCount:0, teamCount:0, bwinCount:0, match:{}, shortcut:{}, iid:{}, hid:{}, aid:{}, home:{}, away:{}, game:{}, team:{} },
+      data    = { gameCount:0, teamCount:0, bwinCount:0, tradeCount:0, match:{}, shortcut:{}, iid:{}, hid:{}, aid:{}, home:{}, away:{}, game:{}, team:{} },
       ep      = new eventproxy();
 
   //处理抓取错误
   var retry = function (){
     next(day,false,true);
+    //防止多次调用
+    retry = function(){};
   },
-  done = helper.done(ep,retry,printer);
+  get = helper.get(printer);
 
   printer.header(day);
-  needle.defaults({ open_timeout:5000, read_timeout:15000, json:true, headers:{'X-Requested-With': 'XMLHttpRequest', 'Accept-Encoding': 'gzip, deflate, sdch'}});
 
   //赔率数据
   var oddsStep = function (response) {
     var $      = cheerio.load(response.body),
         flag   = false,
         script = null;
-    $('script').each(function (i,elm){
+    $('script').each(function (){
       //包含对阵数据
       if(!flag&&$(this).text().indexOf('duizhenList')!==-1){
         flag   = true;
@@ -68,9 +67,9 @@ module.exports = function (day, next, force){
       return next(day);
     }
     data.count = tr.length;
-    tr.each(function (i,elm) {
+    tr.each(function () {
       //解析代码
-      var obj  = { game:{}, home:{}, away:{}, jingcai:{}, odds:{europe:{},asia:{}} },
+      var obj  = { game:{}, home:{}, away:{}, jingcai:{spf:{},rqspf:{}}, odds:{europe:{},asia:{}} },
           mid  = $(this).attr('data-fid'),
           home = $(this).find('td.text_right'),
           away = $(this).find('td.text_left');
@@ -109,7 +108,7 @@ module.exports = function (day, next, force){
     //释放可能导致内存泄露的对象
     ouzhiList = yapanList = null;
     printer.done('odds');
-    needle.get(URL.score.replace('{day}',day), done(scoreStep));
+    get(URL.score.replace('{day}',day), scoreStep);
   };
 
   var jcQuery = {list:[],dict:{}};
@@ -117,13 +116,13 @@ module.exports = function (day, next, force){
   var scoreStep = function (response) {
     var $ = cheerio.load(response.body);
     var tr = $('table.ld_table > tr:not(:first-child)');
-    tr.each(function (i,elm) {
+    tr.each(function () {
       var shortcut = $(this).find('td').eq(0).text(),
           hid      = parser.tid($(this).find('td').eq(3)),
           aid      = parser.tid($(this).find('td').eq(5)),
           obj      = data.shortcut[shortcut]||data.hid[hid]||data.aid[aid];
       if(obj){
-        obj.jingcai.rq =parser.int($(this).find('td.eng').eq(1).text());
+        obj.jingcai.rqspf.rq =parser.int($(this).find('td.eng').eq(1).text());
         //比分数据
         var scoreText = $(this).find('td.eng').eq(2).text();
         if(scoreText&&scoreText!='-'){
@@ -154,7 +153,7 @@ module.exports = function (day, next, force){
       }
     });
     printer.done('score');
-    needle.get(URL.live.replace('{day}',day), done(liveStep));
+    get(URL.live.replace('{day}',day), liveStep);
   }
 
   //红黄牌数据
@@ -162,7 +161,7 @@ module.exports = function (day, next, force){
     var $ = cheerio.load(response.body);
     var flag = false;
     var script = null;
-    $('script').each(function (i,elm){
+    $('script').each(function (){
       //包含对阵数据
       if(!flag&&$(this).text().indexOf('liveOddsList')!==-1){
         flag = true;
@@ -178,12 +177,12 @@ module.exports = function (day, next, force){
     if(tr.length>0 && tr.length<data.count){
       data.count = tr.length;
     }
-    tr.each(function (i,elm) {
+    tr.each(function () {
       if($(this).attr('fid')==='-1'){
         data.count--;
       }
     });
-    tr.each(function (i,elm) {
+    tr.each(function () {
       //解析
       var mid = $(this).attr('fid'),
           obj = data.match[mid];
@@ -196,6 +195,10 @@ module.exports = function (day, next, force){
         }
         obj.home.fullname = parser.trim($(this).find('td[align=right] a').text());
         obj.away.fullname = parser.trim($(this).find('td[align=left] a').text());
+        if(obj.jingcai.rqspf.rq === undefined){
+          obj.jingcai.rqspf.rq = parser.handicap($(this).find('td[align=right] span.sp_sr').text())||parser.handicap($(this).find('td[align=right] span.sp_rq').text());
+        }
+        obj.home.fullname = parser.trim($(this).find('td[align=right] a').text());
         //中立场次
         if(parser.trim($(this).find('td[align=right] font').text())==='(中)'){
           obj.neutral = true;
@@ -251,21 +254,18 @@ module.exports = function (day, next, force){
         console.info('当日数据已为最新，无需更新');
         return next(day,alldone);
       }else{
-        rl = jcQuery.list.length;
-        jingcaiOddsLoop();
+        tl = rl = jcQuery.list.length;
+        return jingcaiOddsLoop();
       }
     }));
   }
-  var rl;
+  var tl,rl,h,p,jd,lt;
   //抓取竞彩赔率数据
   var jingcaiOddsLoop = function (){
     var ql;
-    if(rl>5){
-      rl -= 5;
-      ql = 5;
-    }else if(rl>0){
-      ql = rl;
-      rl = 0;
+    if(rl>0){
+      ql = Math.min(4,rl);
+      rl -= ql;
     }else{
       return preTradeStep();
     }
@@ -275,14 +275,19 @@ module.exports = function (day, next, force){
       if(rl>0){
         jingcaiOddsLoop();
       }else{
-        console.log(' √ 竞彩赔率'.dim.grey);
-        return preTradeStep();
+        printer.done('jcOdds');
+        h  = 0;
+        p  = 1;
+        jd = -1;
+        lt = '';
+        return jingcaiTradeLoop();
       }
     });
+    printer.progress('jcOdds',tl-rl,tl);
     //抓取竞彩赔率数据
     for(var j = 0; j<ql; j++){
       var q = jcQuery.list.pop();
-      needle.get(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), done(jingcaiOddsStep(q)));
+      get(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), jingcaiOddsStep(q));
     }
   }
   var jingcaiOddsStep = function (query){
@@ -291,11 +296,11 @@ module.exports = function (day, next, force){
       if(odds){
         var obj = query.obj;
         var last = null;
-        obj.jingcai[DICT.JINGCAI[query.type]] = [];
+        obj.jingcai[DICT.JINGCAI[query.type]].sp = [];
         for(var i = 0; i < odds.length; i++){
           //去掉重复赔率变化（早期数据可能出现此问题）
           if(!(last&&(odds[i].time === last.time && odds[i].win === last.win && odds[i].draw === last.draw && odds[i].lost === last.lost))){
-            obj.jingcai[DICT.JINGCAI[query.type]].push({sp:[parser.number(odds[i].win),parser.number(odds[i].draw),parser.number(odds[i].lost)], time: new Date(odds[i].time) });
+            obj.jingcai[DICT.JINGCAI[query.type]].sp.push({data:[parser.number(odds[i].win),parser.number(odds[i].draw),parser.number(odds[i].lost)], time: new Date(odds[i].time) });
           }
           last = odds[i];
         }
@@ -303,33 +308,48 @@ module.exports = function (day, next, force){
       ep.emit('jingcaiOdds');
     }
   }
-
-  var preTradeStep = function (){
-    if(time.compare(day,TODAY)>=0){
-      needle.get(URL.trade_today, done(tradeStep));
-    }else{
-      needle.get(URL.trade.replace('{yyyy}',day_arr[0]).replace('{mm}',day_arr[1]).replace('{dd}',day_arr[2]), done(tradeStep));
-    }
+  //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
+  var jingcaiTradeLoop = function (){
+    get(URL.jingcai_trade.replace('{day}',converter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
   }
-
-  //成交量数据
-  var tradeStep = function (response) {
-    if(response.body.xml&&response.body.xml.project.row){
-      var parse = function (elm) {
-        var no  = elm.$,
-            obj = data.iid[parser.int(no.id)];
-        if(obj&&obj.jingcai){
-          obj.jingcai.trade = [parser.int(no.number_3),parser.int(no.number_1),parser.int(no.number_0)];
+  var jingcaiTradeStep = function (response) {
+    var $ = cheerio.load(response.body);
+    var block = $('.leftMain .block');
+    //当天没有数据、抓满了、抓完了
+    if(block.length === 0||data.count === data.tradeCount||$('.leftMain .block .blockTit a').eq(0).text() === lt){
+      var flag = 2;
+      if(h<1){
+        h++;
+        p = 1;
+        flag = 1;
+        data.tradeCount = 0;
+      }else if(jd<1){
+        jd++;
+        h = 0;
+        p = 1;
+        flag = 1;
+      }
+      if(flag === 1){
+        return jingcaiTradeLoop();
+      }else if(flag === 2){
+        printer.done('jcTrade');
+        return get(URL.bwin.replace('{day}',day), bwinStep);
+      }
+    }else{
+      lt = $('.leftMain .block .blockTit a').eq(0).text();
+      block.each(function(i){
+        var tt = $(this).find('.blockTit a').text().split(' ');
+        var tr = $(this).find('tr:not(.tr1) td .zhichi');
+        var obj= data.shortcut[tt[0]];
+        if(obj){
+          obj.jingcai[DICT.HAD[h].name].trade = [parser.int(tr.eq(0).text())||0,parser.int(tr.eq(1).text())||0,parser.int(tr.eq(2).text())||0];
+          data.tradeCount++;
         }
-      }
-      if(response.body.xml.project.row.forEach){
-        response.body.xml.project.row.forEach(parse);
-      }else{
-        parse(response.body.xml.project.row);
-      }
+      });
+      printer.progress('jcTrade',data.tradeCount,data.count,' /'+converter.dateToString(time.tomorrow(day,jd))+'/'+h+'/'+p);
+      p++;
+      jingcaiTradeLoop();
     }
-    console.log(' √ 500.com成交量'.dim.grey);
-    needle.get(URL.bwin.replace('{day}',day), done(bwinStep));
   }
 
   //必发数据
@@ -337,7 +357,7 @@ module.exports = function (day, next, force){
     var $ = cheerio.load(response.body);
     var tbody = $('#MatchTable tbody');
     data.bwinCount = tbody.length;
-    tbody.each(function (i,elm) {
+    tbody.each(function () {
       var shortcut = parser.trim($(this).find('tr').eq(0).find('td').eq(0).text()),
           home     = parser.trim($(this).find('tr').eq(0).find('td').eq(2).text()),
           away     = parser.trim($(this).find('tr').eq(2).find('td').eq(0).text()),
@@ -346,7 +366,7 @@ module.exports = function (day, next, force){
         data.bwinCount--;
       }
     });
-    tbody.each(function (i,elm) {
+    tbody.each(function () {
       //解析
       var shortcut  = parser.trim($(this).find('tr').eq(0).find('td').eq(0).text()),
           home      = parser.trim($(this).find('tr').eq(0).find('td').eq(2).text()),
@@ -455,5 +475,5 @@ module.exports = function (day, next, force){
     }));
   };
 
-  needle.get(URL.odds.replace('{day}',day), done(oddsStep));
+  get(URL.odds.replace('{day}',day), oddsStep);
 }
