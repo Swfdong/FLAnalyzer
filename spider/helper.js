@@ -2,8 +2,8 @@ var _           = require('lodash'),
     needle      = require('needle');
 
 needle.defaults({
-  open_timeout:3000,
-  read_timeout:5000,
+  open_timeout:2000,
+  read_timeout:4000,
   json:true,
   headers:{
     'X-Requested-With': 'XMLHttpRequest',

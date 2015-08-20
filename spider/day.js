@@ -123,7 +123,10 @@ module.exports = function (day, next, force){
           aid      = parser.tid($(this).find('td').eq(5)),
           obj      = data.shortcut[shortcut]||data.hid[hid]||data.aid[aid];
       if(obj){
-        obj.jingcai.rqspf.rq =parser.int($(this).find('td.eng').eq(1).text());
+        var rq = parser.int($(this).find('td.eng').eq(1).text());
+        if(rq){
+          obj.jingcai.rqspf.rq = rq;
+        }
         //比分数据
         var scoreText = $(this).find('td.eng').eq(2).text();
         if(scoreText&&scoreText!='-'){
@@ -197,8 +200,9 @@ module.exports = function (day, next, force){
         }
         obj.home.fullname = parser.trim($(this).find('td[align=right] a').text());
         obj.away.fullname = parser.trim($(this).find('td[align=left] a').text());
-        if(obj.jingcai.rqspf.rq === undefined){
-          obj.jingcai.rqspf.rq = parser.handicap($(this).find('td[align=right] span.sp_sr').text())||parser.handicap($(this).find('td[align=right] span.sp_rq').text());
+        var rq = parser.handicap($(this).find('td[align=right] span.sp_sr').text())||parser.handicap($(this).find('td[align=right] span.sp_rq').text());
+        if(obj.jingcai.rqspf.rq === undefined && rq){
+          obj.jingcai.rqspf.rq = rq;
         }
         obj.home.fullname = parser.trim($(this).find('td[align=right] a').text());
         //中立场次
