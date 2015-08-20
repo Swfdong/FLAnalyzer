@@ -2,40 +2,87 @@ var _           = require('lodash'),
     util        = require('util'),
     colors      = require('colors'),
     ansi        = require('ansi'),
+    time        = require('util'),
     cursor      = ansi(process.stdout);
 
+var replacer = function (str,args){
+  if(args){
+    while(args.length>0){
+      str = str.replace('%d',String(args.shift()));
+    }
+  }
+  return str;
+}
 
 var progressBar = function (cur,total,str){
   var len = 20;
   var progress = Math.min(len,Math.ceil(cur/total*len));
-  cursor.horizontalAbsolute(0).eraseLine().write(' '+(new Array(progress+1).join('█')).grey+(new Array(len+1-progress).join('█')).dim.grey+' '+(cur+'/'+total).grey+(str?str:'').dim.grey);
+  cursor.horizontalAbsolute(0).eraseLine().write(' '+(new Array(progress+1).join('█')).grey+(new Array(len+1-progress).join('█')).dim.grey+' '+(cur+'/'+total).grey+(str?str:'').dim.grey).hide();
 }
 
 module.exports    = function(logger){
-  var isLastLineError = false;
-  //clearline用于长时间抓取的进度显示准备工作，
+  var isConsole       = logger === console? true:false,
+      isLastLineError = false,
+      isLastLineStart = false,
+      clearLine       = function(){},
+      deleteLine      = function(){};
+  //clearLine用于长时间抓取的进度显示准备工作，
   //进度显示仅在终端显示时输出，如logger为第三方日志库不会写入日志。
-  var clearline   = function(){};
-  if(logger === console){
-    clearline = function(after){
+  if(isConsole){
+    clearLine = function(){
       if(isLastLineError){
         cursor.previousLine().eraseLine().previousLine().eraseLine();
         isLastLineError = false;
       }
       cursor.horizontalAbsolute(0).eraseLine();
-      if(after){
-        after();
+    }
+    deleteLine = function(){
+      if(isLastLineStart){
+        cursor.previousLine().eraseLine();
+        isLastLineStart = false;
       }
     }
-  }
-  var line        = function(grey){
+  };
+  var header  = function (str){
+    clearLine();
+    line();
+    logger.log(str);
+    line();
+  },
+  line = function (grey){
     if(grey){
       logger.log('——————————————————————————————————————————————'.dim.grey);
     }else{
       logger.log('——————————————————————————————————————————————');
     }
   },
-  spider_done   = {
+  generatorSpider = function (spider_type){
+    return {
+      start: function (type){
+        isLastLineStart = true;
+        if(spider_dict[spider_type][type]){
+          clearLine();
+          logger.log((' • '+spider_dict[spider_type][type]).dim.grey);
+        }
+      },
+      done: function (type){
+        if(spider_dict[spider_type][type]){
+          clearLine();
+          deleteLine();
+          logger.log((' √ '+spider_dict[spider_type][type]).grey);
+        }
+      }
+    };
+  },
+  replaceAndLog = function (raw,raw_args,color){
+    if(color === undefined){
+      color = 'reset';
+    }
+    var args = Array.prototype.slice.call(raw_args);
+    args.shift();
+    logger.log(replacer(raw,args)[color]);
+  }
+  spider_dict = {
     day: {
       odds:   '基本信息',
       score:  '半全场比分',
@@ -47,11 +94,25 @@ module.exports    = function(logger){
     team: {
       home:   '主场数据',
       away:   '客场数据'
+    },
+    main: {
+      day:{
+        start:  '检查并抓取每日赛事数据...',
+        done:   '自%d至%d的赛事数据已更新。'
+      },
+      team:{
+        start:  '检查并抓取球队赛事数据...',
+        done:   '%d支球队已更新完毕，重新检测需更新的球队...'
+      },
+      all:{
+        start:  '开始抓取竞彩足球赛事数据：',
+        done:   '全部%d支球队已更新完毕，耗时%d'
+      }
     }
   },
   //通用输出
-  common        = {
-    count: function (type,num){
+  common = {
+    count: function (type){
       var dict = {
         match:  '共%d场比赛',
         team:   '共%d支球队',
@@ -59,13 +120,12 @@ module.exports    = function(logger){
       };
       if(dict[type]){
         line(true);
-        logger.log(' '+dict[type].replace('%d',String(num)));
+        replaceAndLog(' '+dict[type],arguments);
       }
     },
     progress: function (type,current,total,str){
-      clearline(function(){
-        progressBar(current,total,str);
-      });
+      clearLine();
+      progressBar(current,total,str);
     },
     save: function (data,update){
       update = update||false;
@@ -80,15 +140,19 @@ module.exports    = function(logger){
     },
     error: function (type,err){
       var dict = {
-        needle:  '数据抓取',
-        mongo:   '数据库操作',
-        json:    'JSON解析'
+        needle:       { info:'数据抓取',retry:true },
+        mongo_conn:   { info:'数据库连接',retry:false },
+        mongo_query:  { info:'数据库读取',retry:false },
+        mongo_save:   { info:'数据库写入',retry:true },
+        json:         { info:'JSON解析',retry:true }
       };
       if(dict[type]){
-        clearline();
+        clearLine();
         isLastLineError = true;
-        logger.error(' '+(dict[type]+'出错，错误信息为：').red+String(err).grey);
-        logger.error(' 重新请求内容...');
+        logger.error(' '+(dict[type].info+'出错，错误信息为：').red+String(err).grey);
+        if(dict[type].retry){
+          logger.error(' 重新请求内容...');
+        }
       }
     },
     obj: function (obj){
@@ -99,30 +163,34 @@ module.exports    = function(logger){
     spider: {
       day: function(){
         return _.assign({
-          done: function (type){
-            if(spider_done.day[type]){
-              clearline();
-              logger.log((' √ '+spider_done.day[type]).dim.grey);
-            }
-          },
           header:function (day){
-            line();
-            logger.log('正在抓取'+day+'的比赛数据...');
-            line();
+            header('正在抓取'+day+'的比赛数据...');
           }
-        },common);
+        },generatorSpider('day'),common);
       },
       team: function(){
         return _.assign({
+          header:function (team){
+            header('正在抓取'+team.name+('('+team.tid+')').grey+'的比赛数据...');
+          }
+        },generatorSpider('team'),common);
+      },
+      main: function(){
+        return _.assign({
+          start: function (type){
+            if(spider_dict.main[type]){
+              clearLine();
+              replaceAndLog(spider_dict.main[type].start,arguments,'blue');
+            }
+          },
           done: function (type){
-            if(spider_done.team[type]){
-              logger.log((' √ '+spider_done.team[type]).dim.grey);
+            if(spider_dict.main[type]){
+              clearLine();
+              replaceAndLog(spider_dict.main[type].done,arguments,'blue');
             }
           },
           header:function (team){
-            line();
-            logger.log('正在抓取'+team.name+('('+team.tid+')').grey+'的比赛数据...');
-            line();
+            header('开始抓取竞彩足球赛事数据...');
           }
         },common);
       }

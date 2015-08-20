@@ -20,3 +20,20 @@ exports.compare = function (d1,d2){
   }
   return 0;
 }
+
+var duration = function (d){
+  d = Math.floor((Date.now() - d)/1000);
+  var time = d>0?     (d%60+'秒') : '';
+      time = d>60?    (Math.floor(d/60)%60+'分'+time) : '';
+      time = d>3600?  (Math.floor(d/3600)+'时'+time) : '';
+  return time;
+}
+
+var timestamp;
+exports.start = function (){
+  timestamp = Date.now();
+}
+
+exports.mark = function (){
+  return duration(timestamp);
+}

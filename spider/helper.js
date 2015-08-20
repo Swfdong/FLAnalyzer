@@ -2,7 +2,7 @@ var _           = require('lodash'),
     needle      = require('needle');
 
 needle.defaults({
-  open_timeout:2500,
+  open_timeout:3000,
   read_timeout:5000,
   json:true,
   headers:{
@@ -49,4 +49,25 @@ exports.intake = function (data,obj){
       data[arr[0]+'Count']++;
     }
   });
+}
+
+exports.saveAll = function (data,ep,printer,handlers){
+  //保存事件响应
+  ep.after('match', data.count, function () {
+    printer.count('team',data.teamCount);
+    _.forEach(data.team,handlers.team);
+  });
+  ep.after('team', data.teamCount, function () {
+    printer.count('game',data.gameCount);
+    _.forEach(data.game,handlers.game);
+  });
+  ep.after('game', data.gameCount, handlers.next);
+  ep.fail(function (err){
+    ep.unbind();
+    printer.error('mongo_save',err);
+    return handlers.retry();
+  });
+  //保存数据
+  printer.count('match',data.count);
+  _.forEach(data.match,handlers.match);
 }

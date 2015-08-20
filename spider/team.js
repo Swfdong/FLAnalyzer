@@ -99,26 +99,15 @@ module.exports = function (team, next){
       printer.done(DICT.HOA[hoa]);
       //是否主客场都已抓取完毕
       if(hoa ==2){
-        //保存事件响应
-        ep.after('match', data.count, function () {
-          printer.count('team',data.teamCount);
-          _.forEach(data.team,saveTeam);
+        helper.saveAll(data,ep,printer,{
+          match: saveMatch,
+          team: saveTeam,
+          game: saveGame,
+          next: function(){
+            return next();
+          },
+          retry: retry
         });
-        ep.after('team', data.teamCount, function () {
-          printer.count('game',data.gameCount);
-          _.forEach(data.game,saveGame);
-        });
-        ep.after('game', data.gameCount, function () {
-          return next();
-        });
-        ep.fail(function (err){
-          ep.unbind();
-          printer.error('mongo',err);
-          return retry();
-        });
-        //保存数据
-        printer.count('match',data.count);
-        _.forEach(data.match,saveMatch);
       }else{
         hoa++;
         get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
@@ -177,7 +166,7 @@ module.exports = function (team, next){
         m.save(ep.done('game', function (o){
           printer.save(o);
         }));
-      }else if(!m.fullname){
+      }else if(!m.fullname&&obj.fullname){
         m.fullname = obj.fullname;
         m.save(ep.done('game', function (o){
           printer.save(o,true);

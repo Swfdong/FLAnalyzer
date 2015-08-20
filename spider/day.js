@@ -108,6 +108,7 @@ module.exports = function (day, next, force){
     //释放可能导致内存泄露的对象
     ouzhiList = yapanList = null;
     printer.done('odds');
+    printer.start('score');
     get(URL.score.replace('{day}',day), scoreStep);
   };
 
@@ -153,6 +154,7 @@ module.exports = function (day, next, force){
       }
     });
     printer.done('score');
+    printer.start('live');
     get(URL.live.replace('{day}',day), liveStep);
   }
 
@@ -255,6 +257,7 @@ module.exports = function (day, next, force){
         return next(day,alldone);
       }else{
         tl = rl = jcQuery.list.length;
+        printer.start('jcOdds');
         return jingcaiOddsLoop();
       }
     }));
@@ -275,11 +278,12 @@ module.exports = function (day, next, force){
       if(rl>0){
         jingcaiOddsLoop();
       }else{
-        printer.done('jcOdds');
         h  = 0;
         p  = 1;
         jd = -1;
         lt = '';
+        printer.done('jcOdds');
+        printer.start('jcTrade');
         return jingcaiTradeLoop();
       }
     });
@@ -333,6 +337,7 @@ module.exports = function (day, next, force){
         return jingcaiTradeLoop();
       }else if(flag === 2){
         printer.done('jcTrade');
+        printer.start('bwin');
         return get(URL.bwin.replace('{day}',day), bwinStep);
       }
     }else{
@@ -393,26 +398,15 @@ module.exports = function (day, next, force){
     saveAll();
   };
   var saveAll = function (){
-    //保存事件响应
-    ep.after('match', data.count, function () {
-      printer.count('team',data.teamCount);
-      _.forEach(data.team,saveTeam);
+    helper.saveAll(data,ep,printer,{
+      match: saveMatch,
+      team: saveTeam,
+      game: saveGame,
+      next: function(){
+        return next(day);
+      },
+      retry: retry
     });
-    ep.after('team', data.teamCount, function () {
-      printer.count('game',data.gameCount);
-      _.forEach(data.game,saveGame);
-    });
-    ep.after('game', data.gameCount, function () {
-      return next(day);
-    });
-    ep.fail(function (err){
-      ep.unbind();
-      printer.error('mongo',err);
-      return retry();
-    });
-
-    printer.count('match',data.count);
-    _.forEach(data.match,saveMatch);
   }
   //保存比赛
   var saveMatch = function (obj){
