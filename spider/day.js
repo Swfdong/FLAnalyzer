@@ -31,6 +31,8 @@ var TODAY = converter.dateToString(new Date(Date.now()));
 
 //抓某一日数据
 module.exports = function (day, next, force){
+  printer.header(day);
+
   var day_arr = day.split('-'),
       data    = { gameCount:0, teamCount:0, bwinCount:0, tradeCount:0, match:{}, shortcut:{}, iid:{}, hid:{}, aid:{}, home:{}, away:{}, game:{}, team:{} },
       ep      = new eventproxy();
@@ -42,8 +44,6 @@ module.exports = function (day, next, force){
     retry = function(){};
   },
   get = helper.get(printer);
-
-  printer.header(day);
 
   //赔率数据
   var oddsStep = function (response) {
@@ -159,7 +159,7 @@ module.exports = function (day, next, force){
     printer.done('score');
     printer.start('live');
     get(URL.live.replace('{day}',day), liveStep);
-  }
+  };
 
   //红黄牌数据
   var liveStep = function (response) {
@@ -244,7 +244,7 @@ module.exports = function (day, next, force){
     });
     printer.done('live');
     checkDone();
-  }
+  };
 
   //检查当日数据是否已完成更新
   var checkDone = function (){
@@ -265,7 +265,7 @@ module.exports = function (day, next, force){
         return jingcaiOddsLoop();
       }
     }));
-  }
+  };
   var tl,rl,h,p,jd,lt;
   //抓取竞彩赔率数据
   var jingcaiOddsLoop = function (){
@@ -274,7 +274,7 @@ module.exports = function (day, next, force){
       ql = Math.min(4,rl);
       rl -= ql;
     }else{
-      return jingcaiTradeLoop();
+      return jingcaiTradePrepare();
     }
     //竞彩赔率抓取完成
     ep.after('jingcaiOdds',ql,function(){
@@ -282,13 +282,7 @@ module.exports = function (day, next, force){
       if(rl>0){
         jingcaiOddsLoop();
       }else{
-        h  = 0;
-        p  = 1;
-        jd = -1;
-        lt = '';
-        printer.done('jcOdds');
-        printer.start('jcTrade');
-        return jingcaiTradeLoop();
+        return jingcaiTradePrepare();
       }
     });
     printer.progress('jcOdds',tl-rl,tl);
@@ -297,7 +291,16 @@ module.exports = function (day, next, force){
       var q = jcQuery.list.pop();
       get(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), jingcaiOddsStep(q));
     }
-  }
+  };
+  var jingcaiTradePrepare = function(){
+    h  = 0;
+    p  = 1;
+    jd = -1;
+    lt = '';
+    printer.done('jcOdds');
+    printer.start('jcTrade');
+    jingcaiTradeLoop();
+  };
   var jingcaiOddsStep = function (query){
     return function (response) {
       var odds = helper.json(response.body,retry,printer);
@@ -315,11 +318,11 @@ module.exports = function (day, next, force){
       }
       ep.emit('jingcaiOdds');
     }
-  }
+  };
   //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
   var jingcaiTradeLoop = function (){
     get(URL.jingcai_trade.replace('{day}',converter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
-  }
+  };
   var jingcaiTradeStep = function (response) {
     var $ = cheerio.load(response.body);
     var block = $('.leftMain .block');
@@ -359,7 +362,7 @@ module.exports = function (day, next, force){
       p++;
       jingcaiTradeLoop();
     }
-  }
+  };
 
   //必发数据
   var bwinStep = function (response) {
@@ -411,7 +414,7 @@ module.exports = function (day, next, force){
       },
       retry: retry
     });
-  }
+  };
   //保存比赛
   var saveMatch = function (obj){
     Match.getMatchById(obj.mid, ep.done(function (m){

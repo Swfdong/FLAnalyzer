@@ -25,7 +25,7 @@ module.exports = function (force){
       //timestamp = Date.now(),
       //now       = new Date(Date.now()),
       start     = converter.dateToString(new Date(Date.now()));
-      //start = '2011-01-06';
+      start = '2010-11-15';
   //clear();
   // 如果时间在早上10点之前，live.500.com有可能抓不到当天数据，故向前推一天
   // if(now.getHours()<10){

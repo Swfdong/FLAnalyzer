@@ -23,6 +23,8 @@ var URL = {
 
 //抓某一日数据
 module.exports = function (team, next){
+  printer.header(team);
+  
   var hoa   = 1,
       data  = { count:0, gameCount:0, teamCount:0, match:{}, game:{}, team:{} },
       ep    = new eventproxy();
@@ -33,7 +35,6 @@ module.exports = function (team, next){
     retry = function(){};
   },
   get = helper.get(printer);
-  printer.header(team);
 
   //抓取赛事基本信息
   var matchesStep = function (response) {
@@ -117,7 +118,7 @@ module.exports = function (team, next){
     for(var j = 0; j < DICT.OUZHI.length; j++){
       get(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
     }
-  }
+  };
   //抓取指定公司的赔率数据
   var oddsStep = function (cid) {
     return function (response) {
@@ -132,7 +133,7 @@ module.exports = function (team, next){
       }
       ep.emit('odds');
     }
-  }
+  };
 
   //保存数据
   var saveMatch = function (obj){
