@@ -2,8 +2,8 @@ var _           = require('lodash'),
     needle      = require('needle');
 
 needle.defaults({
-  open_timeout:2000,
-  read_timeout:4000,
+  open_timeout:2500,
+  read_timeout:5000,
   json:true,
   headers:{
     'X-Requested-With': 'XMLHttpRequest',
@@ -16,7 +16,7 @@ exports.get = function(printer){
   var handler = function (url,step){
     needle.get(url, function (err,response){
       //出错自动重试
-      if (err){
+      if (err || response.statusCode !== 200){
         printer.error('needle',err);
         _.delay(function(){
           handler(url,step)
