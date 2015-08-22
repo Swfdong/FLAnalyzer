@@ -1,4 +1,5 @@
-var validator   = require('validator');
+var _           = require('lodash'),
+    validator   = require('validator');
 
 var reciprocal = function (n){
   if(!n) return 0;
@@ -74,16 +75,23 @@ var fixedNumber = exports.fixedNumber = function (num,dig){
   return str;
 }
 
-exports.fixedBySpace = function (s,dig){
+var fixedBySpace = exports.fixedBySpace = function (s,dig){
   if(s===undefined||s===null){
     return ' - ';
+  }else if(_.isArray(s)){
+    var r = _.clone(s);
+    for(var i=0;i<r.length;i++){
+      r[i] = fixedBySpace(r[i],dig);
+    }
+    return s;
+  }else{
+    dig = dig|5;
+    var str = ''+s;
+    while(str.length<dig){
+      str = str+' ';
+    }
+    return str;
   }
-  dig = dig|5;
-  var str = ''+s;
-  while(str.length<dig){
-    str = str+' ';
-  }
-  return str;
 }
 
 exports.numberToString = function (num){

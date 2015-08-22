@@ -24,7 +24,7 @@ var URL = {
 //抓某一日数据
 module.exports = function (team, next){
   printer.header(team);
-  
+
   var hoa   = 1,
       data  = { count:0, gameCount:0, teamCount:0, match:{}, game:{}, team:{} },
       ep    = new eventproxy();
@@ -34,15 +34,14 @@ module.exports = function (team, next){
     //防止多次调用
     retry = function(){};
   },
-  get = helper.get(printer);
+  poster = helper.poster(printer);
 
   //抓取赛事基本信息
-  var matchesStep = function (response) {
-    var body = helper.json(response.body,retry,printer);
-    if(!body.list){
+  var matchesStep = function (data) {
+    if(!data.list){
       return next();
     }
-    var matches = body.list;
+    var matches = data.list;
     var fids = [];
 
     data.count += matches.length;
@@ -111,20 +110,19 @@ module.exports = function (team, next){
         });
       }else{
         hoa++;
-        get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
+        poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
       }
     });
     //抓取赔率
     for(var j = 0; j < DICT.OUZHI.length; j++){
-      get(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
+      poster.json(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
     }
   };
   //抓取指定公司的赔率数据
   var oddsStep = function (cid) {
-    return function (response) {
-      var body = helper.json(response.body,retry,printer);
-      if(body.list){
-        var odds = body.list;
+    return function (data) {
+      if(data.list){
+        var odds = data.list;
         for(var i = 0; i< odds.length; i++){
           var current = odds[i];
           var obj = data.match[parser.int(current.FIXTUREID)];
@@ -139,17 +137,13 @@ module.exports = function (team, next){
   var saveMatch = function (obj){
     Match.getMatchById(obj.mid, ep.done(function (m){
       //只更新没有记录的比赛
-      if(!m){
+      if(!m&&obj.score.full){
         //如果有比分数据才写入
-        if(obj.score.full){
-          m = new Match(obj);
-          m.save(ep.done('match', function (o){
-            printer.save(o);
-          }));
-        }else{
-          ep.emit('match');
-        }
-      }else if(!m.score.full&&obj&&obj.score.full){
+        m = new Match(obj);
+        m.save(ep.done('match', function (o){
+          printer.save(o);
+        }));
+      }else if(m&&!m.score.full&&obj.score.full){
         m.score = obj.score;
         m.save(ep.done('match', function (o){
           printer.save(o,true);
@@ -192,5 +186,5 @@ module.exports = function (team, next){
       }
     }));
   };
-  get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
+  poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
 }

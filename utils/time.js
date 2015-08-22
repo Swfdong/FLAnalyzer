@@ -23,9 +23,9 @@ exports.compare = function (d1,d2){
 
 var duration = function (d){
   d = Math.floor((Date.now() - d)/1000);
-  var time = d>0?     (d%60+'秒') : '';
-      time = d>60?    (Math.floor(d/60)%60+'分'+time) : '';
-      time = d>3600?  (Math.floor(d/3600)+'时'+time) : '';
+  var time = d>=0?     (d%60+'秒') : '';
+      time = d>=60?    (Math.floor(d/60)%60+'分'+time) : time;
+      time = d>=3600?  (Math.floor(d/3600)+'时'+time) : time;
   return time;
 }
 

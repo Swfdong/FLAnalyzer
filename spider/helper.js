@@ -12,7 +12,7 @@ needle.defaults({
 });
 
 
-exports.get = function(printer){
+exports.poster = function(printer){
   var handler = function (url,step){
     needle.get(url, function (err,response){
       //出错自动重试
@@ -25,20 +25,23 @@ exports.get = function(printer){
         step(response);
       }
     });
+  };
+  var jsonHandler = function (url,step){
+    handler(url,function (response){
+      var result;
+      //解析出错自动重试
+      try{
+        result = JSON.parse(response.body);
+      }catch (err) {
+        printer.error('json',err);
+        return jsonHandler(url,step);
+      }
+      return step(result);
+    });
   }
-  return handler;
+  return {get:handler,json:jsonHandler};
 }
 
-exports.json = function (data,next,printer){
-  var result;
-  try{
-    result = JSON.parse(data);
-  }catch (err) {
-    printer.error('json',err);
-    return next();
-  }
-  return result;
-}
 
 exports.intake = function (data,obj){
   [ ['game','game','gid'],

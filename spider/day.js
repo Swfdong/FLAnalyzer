@@ -43,7 +43,7 @@ module.exports = function (day, next, force){
     //防止多次调用
     retry = function(){};
   },
-  get = helper.get(printer);
+  poster = helper.poster(printer);
 
   //赔率数据
   var oddsStep = function (response) {
@@ -109,7 +109,7 @@ module.exports = function (day, next, force){
     ouzhiList = yapanList = null;
     printer.done('odds');
     printer.start('score');
-    get(URL.score.replace('{day}',day), scoreStep);
+    poster.get(URL.score.replace('{day}',day), scoreStep);
   };
 
   var jcQuery = {list:[],dict:{}};
@@ -158,7 +158,7 @@ module.exports = function (day, next, force){
     });
     printer.done('score');
     printer.start('live');
-    get(URL.live.replace('{day}',day), liveStep);
+    poster.get(URL.live.replace('{day}',day), liveStep);
   };
 
   //红黄牌数据
@@ -289,7 +289,24 @@ module.exports = function (day, next, force){
     //抓取竞彩赔率数据
     for(var j = 0; j<ql; j++){
       var q = jcQuery.list.pop();
-      get(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), jingcaiOddsStep(q));
+      poster.json(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), jingcaiOddsStep(q));
+    }
+  };
+  var jingcaiOddsStep = function (query){
+    return function (data) {
+      if(data){
+        var obj = query.obj;
+        var last = null;
+        obj.jingcai[DICT.JINGCAI[query.type]].sp = [];
+        for(var i = 0; i < data.length; i++){
+          //去掉重复赔率变化（早期数据可能出现此问题）
+          if(!(last&&(data[i].time === last.time && data[i].win === last.win && data[i].draw === last.draw && data[i].lost === last.lost))){
+            obj.jingcai[DICT.JINGCAI[query.type]].sp.push({data:[parser.number(data[i].win),parser.number(data[i].draw),parser.number(data[i].lost)], time: new Date(data[i].time) });
+          }
+          last = data[i];
+        }
+      }
+      ep.emit('jingcaiOdds');
     }
   };
   var jingcaiTradePrepare = function(){
@@ -301,27 +318,9 @@ module.exports = function (day, next, force){
     printer.start('jcTrade');
     jingcaiTradeLoop();
   };
-  var jingcaiOddsStep = function (query){
-    return function (response) {
-      var odds = helper.json(response.body,retry,printer);
-      if(odds){
-        var obj = query.obj;
-        var last = null;
-        obj.jingcai[DICT.JINGCAI[query.type]].sp = [];
-        for(var i = 0; i < odds.length; i++){
-          //去掉重复赔率变化（早期数据可能出现此问题）
-          if(!(last&&(odds[i].time === last.time && odds[i].win === last.win && odds[i].draw === last.draw && odds[i].lost === last.lost))){
-            obj.jingcai[DICT.JINGCAI[query.type]].sp.push({data:[parser.number(odds[i].win),parser.number(odds[i].draw),parser.number(odds[i].lost)], time: new Date(odds[i].time) });
-          }
-          last = odds[i];
-        }
-      }
-      ep.emit('jingcaiOdds');
-    }
-  };
   //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
   var jingcaiTradeLoop = function (){
-    get(URL.jingcai_trade.replace('{day}',converter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
+    poster.get(URL.jingcai_trade.replace('{day}',converter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
   };
   var jingcaiTradeStep = function (response) {
     var $ = cheerio.load(response.body);
@@ -345,7 +344,7 @@ module.exports = function (day, next, force){
       }else if(flag === 2){
         printer.done('jcTrade');
         printer.start('bwin');
-        return get(URL.bwin.replace('{day}',day), bwinStep);
+        return poster.get(URL.bwin.replace('{day}',day), bwinStep);
       }
     }else{
       lt = $('.leftMain .block .blockTit a').eq(0).text();
@@ -370,22 +369,13 @@ module.exports = function (day, next, force){
     var tbody = $('#MatchTable tbody');
     data.bwinCount = tbody.length;
     tbody.each(function () {
-      var shortcut = parser.trim($(this).find('tr').eq(0).find('td').eq(0).text()),
-          home     = parser.trim($(this).find('tr').eq(0).find('td').eq(2).text()),
-          away     = parser.trim($(this).find('tr').eq(2).find('td').eq(0).text()),
-          obj      = data.shortcut[shortcut]||data.home[home]||data.away[away];
-      if(!obj){
-        data.bwinCount--;
-      }
-    });
-    tbody.each(function () {
       //解析
-      var shortcut  = parser.trim($(this).find('tr').eq(0).find('td').eq(0).text()),
-          home      = parser.trim($(this).find('tr').eq(0).find('td').eq(2).text()),
-          away      = parser.trim($(this).find('tr').eq(2).find('td').eq(0).text()),
-          bwin_home = parser.trim($(this).find('tr').eq(0).find('td').eq(10).text()),
-          bwin_draw = parser.trim($(this).find('tr').eq(1).find('td').eq(8).text()),
-          bwin_away = parser.trim($(this).find('tr').eq(2).find('td').eq(8).text());
+      var shortcut  = parser.trtd($(this),0,0),
+          home      = parser.trtd($(this),0,2),
+          away      = parser.trtd($(this),2,0),
+          bwin_home = parser.trtd($(this),0,10),
+          bwin_draw = parser.trtd($(this),1,8),
+          bwin_away = parser.trtd($(this),2,8),
           obj       = data.shortcut[shortcut]||data.home[home]||data.away[away];
       if(obj){
         if(bwin_home && bwin_draw && bwin_away){
@@ -399,6 +389,8 @@ module.exports = function (day, next, force){
           obj.score.full.home = parser.int(score[0]);
           obj.score.full.away = parser.int(score[1]);
         }
+      }else{
+        data.bwinCount--;
       }
     });
     printer.done('bwin');
@@ -461,5 +453,5 @@ module.exports = function (day, next, force){
     }));
   };
 
-  get(URL.odds.replace('{day}',day), oddsStep);
+  poster.get(URL.odds.replace('{day}',day), oddsStep);
 }

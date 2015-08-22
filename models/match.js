@@ -143,7 +143,7 @@ MatchSchema.methods.result = function (type){
     return {error:1};
   }
   if(type === "handicap"){
-    o.home += this.jingcai.handicap[3];
+    o.home += this.jingcai.rqspf.rq;
   }
   if(o.home > o.away){
     return 3;
@@ -174,12 +174,11 @@ MatchSchema.methods.isWin = function (team){
 }
 
 //计算
-//根据期望算概率
-MatchSchema.methods.profit = function (){
-  if(this.trade[0]!==undefined && this.odds.europe.average.now[0]!==undefined){
-    var odds = this.odds.europe.average.now;
-    var total = Math.floor(this.trade[0]+this.trade[1]+this.trade[2]);
-    return [(total-Math.floor(this.trade[0]*odds[0])),(total-Math.floor(this.trade[1]*odds[1])),(total-Math.floor(this.trade[2]*odds[2]))];
+MatchSchema.methods.tradeRatio = function (){
+  if(this.jingcai.spf.trade&&this.jingcai.spf.trade[0]){
+    var trade = this.jingcai.spf.trade;
+    var total = Math.floor(trade[0]+trade[1]+trade[2]);
+    return [trade[0]/total,trade[1]/total,trade[2]/total];
   }
   return undefined;
 }
@@ -203,7 +202,7 @@ MatchSchema.statics.getMatchById = function (mid, callback){
 }
 
 MatchSchema.statics.getMatchesByDate = function (date, callback){
-  this.find({'date': date}).exec(callback);
+  this.find({'date': date}).sort({time:1}).exec(callback);
 }
 
 MatchSchema.statics.getMatchesByHomeTeam = function (team, game, time, limit, callback){

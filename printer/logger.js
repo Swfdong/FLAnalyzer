@@ -3,7 +3,12 @@ var _           = require('lodash'),
     colors      = require('colors'),
     ansi        = require('ansi'),
     time        = require('util'),
+    converter   = require('../utils/converter'),
     cursor      = ansi(process.stdout);
+
+var DICT        = require('../configs/printer').dict;
+
+var Match       = require('../models/match');
 
 var replacer = function (str,args){
   if(args){
@@ -12,13 +17,12 @@ var replacer = function (str,args){
     }
   }
   return str;
-}
-
+};
 var progressBar = function (cur,total,str){
   var len = 20;
   var progress = Math.min(len,Math.ceil(cur/total*len));
   cursor.horizontalAbsolute(0).eraseLine().write(' '+(new Array(progress+1).join('█')).grey+(new Array(len+1-progress).join('█')).dim.grey+' '+(cur+'/'+total).grey+(str?str:'').dim.grey).hide();
-}
+};
 
 module.exports    = function(logger){
   var isConsole       = logger === console? true:false,
@@ -54,6 +58,82 @@ module.exports    = function(logger){
       logger.log('——————————————————————————————————————————————'.dim.grey);
     }else{
       logger.log('——————————————————————————————————————————————');
+    }
+  },
+  europeOdds = function (match){
+    var updown = function (odds){
+      var result = [odds.now[0],odds.now[1],odds.now[2]];
+      for(var i=0;i<3;i++){
+        if(result[i]<odds.first[i]){
+          result[i] = converter.fixedBySpace(result[i]).green;
+        }else if(result[i]>odds.first[i]){
+          result[i] = converter.fixedBySpace(result[i]).red;
+        }else{
+          result[i] = converter.fixedBySpace(result[i]);
+        }
+      }
+      return result;
+    }
+    logger.log('赔率\t\t主胜 \t平局 \t主负 \t赔付率'.grey);
+    _.forIn(DICT.COMPANY,function (name,key){
+      var data = match.odds.europe[key];
+      var first = converter.fixedBySpace(data.first);
+      if(first[0]){
+        var ud = updown(data);
+        line(true);
+        logger.log(name+' \t'+ud[0]+'\t'+ud[1]+'\t'+ud[2]+'\t'+converter.fixedNumber(Match.claimRatio(data.now)));
+        logger.log('        \t'+first[0]+'\t'+first[1]+'\t'+first[2]+'\t'+converter.fixedNumber(Match.claimRatio(data.first)));
+      }
+    });
+  },
+  bwinProfits = function (match){
+    if(match.bwin[0]){
+      var bwin = _.clone(match.bwin);
+      for(var i=0;i<bwin.length;i++){
+        if(bwin[i]<-500000){
+          bwin[i] = converter.fixedBySpace(bwin[i],6).green;
+        }else if(bwin[i]>500000){
+          bwin[i] = converter.fixedBySpace(bwin[i],6).red;
+        }else{
+          bwin[i] = converter.fixedBySpace(bwin[i],6);
+        }
+      }
+      line();
+      logger.log('必发盈亏  \t主胜 \t平局 \t主负'.grey);
+      logger.log('         \t'+bwin[0]+'\t'+bwin[1]+'\t'+bwin[2]);
+    }
+  },
+  jingcaiProfits = function (match){
+    if(match.tradeRatio()){
+      var jingcaiTrade = _.clone(match.jingcai.spf.trade);
+      for(var i=0;i<jingcaiTrade.length;i++){
+        if(jingcaiTrade[i]>10000){
+          jingcaiTrade[i] = converter.fixedBySpace(jingcaiTrade[i],6).red;
+        }else{
+          jingcaiTrade[i] = converter.fixedBySpace(jingcaiTrade[i],6);
+        }
+      }
+      var jingcaiRatio = match.tradeRatio();
+      var jingcaiSp = match.jingcai.spf.sp[match.jingcai.spf.sp.length-1].data;
+      var jingcaiPb = Match.probability(jingcaiSp);
+      for(var i=0;i<jingcaiRatio.length;i++){
+        if(jingcaiRatio[i]-jingcaiPb[i]>=0.1){
+          jingcaiRatio[i] = converter.fixedNumber(jingcaiRatio[i],6).green;
+        }else if(jingcaiRatio[i]-jingcaiPb[i]<=-0.1){
+          jingcaiRatio[i] = converter.fixedNumber(jingcaiRatio[i],6).red;
+        }else{
+          jingcaiRatio[i] = converter.fixedNumber(jingcaiRatio[i],6);
+        }
+        jingcaiPb[i] = converter.fixedNumber(jingcaiPb[i],6);
+      }
+      line();
+      logger.log('竞彩数据  \t主胜 \t平局 \t主负'.grey);
+      line(true);
+      logger.log('成交量   \t'+jingcaiTrade[0]+'\t'+jingcaiTrade[1]+'\t'+jingcaiTrade[2]);
+      line(true);
+      logger.log('成交比例 \t'+jingcaiRatio[0]+'\t'+jingcaiRatio[1]+'\t'+jingcaiRatio[2]);
+      line(true);
+      logger.log('赔率概率 \t'+jingcaiPb[0]+'\t'+jingcaiPb[1]+'\t'+jingcaiPb[2]);
     }
   },
   generatorSpider = function (spider_type){
@@ -157,6 +237,12 @@ module.exports    = function(logger){
     },
     obj: function (obj){
       logger.log(JSON.stringify(obj,'','  '));
+    },
+    match: function (match){
+      header('\n'+converter.dateToString(match.time).grey+'\t'+match.shortcut+(' '+match.game.name+' ').red+match.home.name+' VS '.dim.grey+match.away.name+'\n');
+      europeOdds(match);
+      bwinProfits(match);
+      jingcaiProfits(match);
     }
   };
   return {
@@ -164,6 +250,7 @@ module.exports    = function(logger){
       day: function(){
         return _.assign({
           header:function (day){
+            clearLine();
             header('正在抓取'+day+'的比赛数据...');
           }
         },generatorSpider('day'),common);
@@ -171,6 +258,7 @@ module.exports    = function(logger){
       team: function(){
         return _.assign({
           header:function (team){
+            clearLine();
             header('正在抓取'+team.name+('('+team.tid+')').grey+'的比赛数据...');
           }
         },generatorSpider('team'),common);
