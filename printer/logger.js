@@ -129,6 +129,8 @@ module.exports    = function(logger){
       line();
       logger.log('竞彩数据  \t主胜 \t平局 \t主负'.grey);
       line(true);
+      logger.log('赔率     \t'+jingcaiSp[0]+'\t'+jingcaiSp[1]+'\t'+jingcaiSp[2]);
+      line(true);
       logger.log('成交量   \t'+jingcaiTrade[0]+'\t'+jingcaiTrade[1]+'\t'+jingcaiTrade[2]);
       line(true);
       logger.log('成交比例 \t'+jingcaiRatio[0]+'\t'+jingcaiRatio[1]+'\t'+jingcaiRatio[2]);
