@@ -293,17 +293,17 @@ module.exports = function (day, next, force){
     }
   };
   var jingcaiOddsStep = function (query){
-    return function (data) {
-      if(data){
+    return function (json) {
+      if(json){
         var obj = query.obj;
         var last = null;
         obj.jingcai[DICT.JINGCAI[query.type]].sp = [];
-        for(var i = 0; i < data.length; i++){
+        for(var i = 0; i < json.length; i++){
           //去掉重复赔率变化（早期数据可能出现此问题）
-          if(!(last&&(data[i].time === last.time && data[i].win === last.win && data[i].draw === last.draw && data[i].lost === last.lost))){
-            obj.jingcai[DICT.JINGCAI[query.type]].sp.push({data:[parser.number(data[i].win),parser.number(data[i].draw),parser.number(data[i].lost)], time: new Date(data[i].time) });
+          if(!(last&&(json[i].time === last.time && json[i].win === last.win && json[i].draw === last.draw && json[i].lost === last.lost))){
+            obj.jingcai[DICT.JINGCAI[query.type]].sp.push({json:[parser.number(json[i].win),parser.number(json[i].draw),parser.number(json[i].lost)], time: new Date(json[i].time) });
           }
-          last = data[i];
+          last = json[i];
         }
       }
       ep.emit('jingcaiOdds');

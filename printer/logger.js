@@ -74,7 +74,7 @@ module.exports    = function(logger){
       }
       return result;
     }
-    logger.log('赔率\t\t主胜 \t平局 \t主负 \t赔付率'.grey);
+    logger.log('欧赔\t\t主胜 \t平局 \t主负 \t赔付率'.grey);
     _.forIn(DICT.COMPANY,function (name,key){
       var data = match.odds.europe[key];
       var first = converter.fixedBySpace(data.first);
@@ -211,7 +211,7 @@ module.exports    = function(logger){
       update = update||false;
       var dot = { false: ' •'.red, true:' •'.green };
       if(data.mid){
-        logger.log(dot[update], data.shortcut.grey, data.home.name+(data.neutral?'(中)'.dim.red:''),'VS'.grey, data.away.name, (data.score.full.home!==undefined?('('+data.score.full.home+':'+data.score.full.away+')'):'').grey);
+        logger.log(dot[update], data.shortcut?data.shortcut.grey:'', data.home.name+(data.neutral?'(中)'.dim.red:''),'VS'.grey, data.away.name, (data.score.full.home!==undefined?('('+data.score.full.home+':'+data.score.full.away+')'):'').grey);
       }else if(data.tid){
         logger.log(dot[update], data.name+(data.fullname?('/'+data.fullname).gray:'')+('/'+data.tid).dim.gray);
       }else if(data.gid){

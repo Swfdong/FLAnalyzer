@@ -37,11 +37,11 @@ module.exports = function (team, next){
   poster = helper.poster(printer);
 
   //抓取赛事基本信息
-  var matchesStep = function (data) {
-    if(!data.list){
+  var matchesStep = function (json) {
+    if(!json.list){
       return next();
     }
-    var matches = data.list;
+    var matches = json.list;
     var fids = [];
 
     data.count += matches.length;
@@ -99,15 +99,7 @@ module.exports = function (team, next){
       printer.done(DICT.HOA[hoa]);
       //是否主客场都已抓取完毕
       if(hoa ==2){
-        helper.saveAll(data,ep,printer,{
-          match: saveMatch,
-          team: saveTeam,
-          game: saveGame,
-          next: function(){
-            return next();
-          },
-          retry: retry
-        });
+        saveAll();
       }else{
         hoa++;
         poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
@@ -117,12 +109,12 @@ module.exports = function (team, next){
     for(var j = 0; j < DICT.OUZHI.length; j++){
       poster.json(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
     }
-  };
+  }
   //抓取指定公司的赔率数据
   var oddsStep = function (cid) {
-    return function (data) {
-      if(data.list){
-        var odds = data.list;
+    return function (json) {
+      if(json.list){
+        var odds = json.list;
         for(var i = 0; i< odds.length; i++){
           var current = odds[i];
           var obj = data.match[parser.int(current.FIXTUREID)];
@@ -132,18 +124,28 @@ module.exports = function (team, next){
       ep.emit('odds');
     }
   };
-
+  var saveAll = function (){
+    helper.saveAll(data,ep,printer,{
+      match: saveMatch,
+      team: saveTeam,
+      game: saveGame,
+      next: function(){
+        return next();
+      },
+      retry: retry
+    });
+  };
   //保存数据
   var saveMatch = function (obj){
     Match.getMatchById(obj.mid, ep.done(function (m){
       //只更新没有记录的比赛
-      if(!m&&obj.score.full){
+      if(obj.score.full&&!m){
         //如果有比分数据才写入
         m = new Match(obj);
         m.save(ep.done('match', function (o){
           printer.save(o);
         }));
-      }else if(m&&!m.score.full&&obj.score.full){
+      }else if(obj.score.full&&!m.score.full){
         m.score = obj.score;
         m.save(ep.done('match', function (o){
           printer.save(o,true);
