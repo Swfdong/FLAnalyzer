@@ -26,10 +26,10 @@ module.exports = function (force){
       current   = '';
   //start = '2015-08-01';
   //clear();
+  time.start();
 
   var runDay = function (){
     current = start;
-    time.start();
     printer.start('day');
     daySpider(current,nextDay,force);
   };
