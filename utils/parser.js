@@ -25,7 +25,14 @@ exports.number = function (str){
 }
 
 exports.tid = function (el){
-  return int(el.find('a').attr('href').match("http://liansai.500.com/team/([0-9]+)/")[1]);
+  if(el.find('a').attr('href')){
+    return int(el.find('a').attr('href').match("http://liansai.500.com/team/([0-9]+)/")[1]);
+  }
+  return 0;
+}
+
+exports.trtd = function (el,tr,td){
+  return exports.trim(el.find('tr').eq(tr).find('td').eq(td).text());
 }
 
 exports.date = function (str){

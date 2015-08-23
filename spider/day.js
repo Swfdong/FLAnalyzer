@@ -31,6 +31,8 @@ var TODAY = converter.dateToString(new Date(Date.now()));
 
 //抓某一日数据
 module.exports = function (day, next, force){
+  printer.header(day);
+
   var day_arr = day.split('-'),
       data    = { gameCount:0, teamCount:0, bwinCount:0, tradeCount:0, match:{}, shortcut:{}, iid:{}, hid:{}, aid:{}, home:{}, away:{}, game:{}, team:{} },
       ep      = new eventproxy();
@@ -41,9 +43,7 @@ module.exports = function (day, next, force){
     //防止多次调用
     retry = function(){};
   },
-  get = helper.get(printer);
-
-  printer.header(day);
+  poster = helper.poster(printer);
 
   //赔率数据
   var oddsStep = function (response) {
@@ -108,7 +108,8 @@ module.exports = function (day, next, force){
     //释放可能导致内存泄露的对象
     ouzhiList = yapanList = null;
     printer.done('odds');
-    get(URL.score.replace('{day}',day), scoreStep);
+    printer.start('score');
+    poster.get(URL.score.replace('{day}',day), scoreStep);
   };
 
   var jcQuery = {list:[],dict:{}};
@@ -122,7 +123,10 @@ module.exports = function (day, next, force){
           aid      = parser.tid($(this).find('td').eq(5)),
           obj      = data.shortcut[shortcut]||data.hid[hid]||data.aid[aid];
       if(obj){
-        obj.jingcai.rqspf.rq =parser.int($(this).find('td.eng').eq(1).text());
+        var rq = parser.int($(this).find('td.eng').eq(1).text());
+        if(rq){
+          obj.jingcai.rqspf.rq = rq;
+        }
         //比分数据
         var scoreText = $(this).find('td.eng').eq(2).text();
         if(scoreText&&scoreText!='-'){
@@ -153,8 +157,9 @@ module.exports = function (day, next, force){
       }
     });
     printer.done('score');
-    get(URL.live.replace('{day}',day), liveStep);
-  }
+    printer.start('live');
+    poster.get(URL.live.replace('{day}',day), liveStep);
+  };
 
   //红黄牌数据
   var liveStep = function (response) {
@@ -195,8 +200,9 @@ module.exports = function (day, next, force){
         }
         obj.home.fullname = parser.trim($(this).find('td[align=right] a').text());
         obj.away.fullname = parser.trim($(this).find('td[align=left] a').text());
-        if(obj.jingcai.rqspf.rq === undefined){
-          obj.jingcai.rqspf.rq = parser.handicap($(this).find('td[align=right] span.sp_sr').text())||parser.handicap($(this).find('td[align=right] span.sp_rq').text());
+        var rq = parser.handicap($(this).find('td[align=right] span.sp_sr').text())||parser.handicap($(this).find('td[align=right] span.sp_rq').text());
+        if(obj.jingcai.rqspf.rq === undefined && rq){
+          obj.jingcai.rqspf.rq = rq;
         }
         obj.home.fullname = parser.trim($(this).find('td[align=right] a').text());
         //中立场次
@@ -238,7 +244,7 @@ module.exports = function (day, next, force){
     });
     printer.done('live');
     checkDone();
-  }
+  };
 
   //检查当日数据是否已完成更新
   var checkDone = function (){
@@ -255,10 +261,11 @@ module.exports = function (day, next, force){
         return next(day,alldone);
       }else{
         tl = rl = jcQuery.list.length;
+        printer.start('jcOdds');
         return jingcaiOddsLoop();
       }
     }));
-  }
+  };
   var tl,rl,h,p,jd,lt;
   //抓取竞彩赔率数据
   var jingcaiOddsLoop = function (){
@@ -267,7 +274,7 @@ module.exports = function (day, next, force){
       ql = Math.min(4,rl);
       rl -= ql;
     }else{
-      return preTradeStep();
+      return jingcaiTradePrepare();
     }
     //竞彩赔率抓取完成
     ep.after('jingcaiOdds',ql,function(){
@@ -275,48 +282,51 @@ module.exports = function (day, next, force){
       if(rl>0){
         jingcaiOddsLoop();
       }else{
-        printer.done('jcOdds');
-        h  = 0;
-        p  = 1;
-        jd = -1;
-        lt = '';
-        return jingcaiTradeLoop();
+        return jingcaiTradePrepare();
       }
     });
     printer.progress('jcOdds',tl-rl,tl);
     //抓取竞彩赔率数据
     for(var j = 0; j<ql; j++){
       var q = jcQuery.list.pop();
-      get(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), jingcaiOddsStep(q));
+      poster.json(URL.jingcai_odds.replace('{iid}',q.obj.iid).replace('{type}',q.type).replace('{day}',day), jingcaiOddsStep(q));
     }
-  }
+  };
   var jingcaiOddsStep = function (query){
-    return function (response) {
-      var odds = helper.json(response.body,retry,printer);
-      if(odds){
+    return function (json) {
+      if(json){
         var obj = query.obj;
         var last = null;
         obj.jingcai[DICT.JINGCAI[query.type]].sp = [];
-        for(var i = 0; i < odds.length; i++){
+        for(var i = 0; i < json.length; i++){
           //去掉重复赔率变化（早期数据可能出现此问题）
-          if(!(last&&(odds[i].time === last.time && odds[i].win === last.win && odds[i].draw === last.draw && odds[i].lost === last.lost))){
-            obj.jingcai[DICT.JINGCAI[query.type]].sp.push({data:[parser.number(odds[i].win),parser.number(odds[i].draw),parser.number(odds[i].lost)], time: new Date(odds[i].time) });
+          if(!(last&&(json[i].time === last.time && json[i].win === last.win && json[i].draw === last.draw && json[i].lost === last.lost))){
+            obj.jingcai[DICT.JINGCAI[query.type]].sp.push({json:[parser.number(json[i].win),parser.number(json[i].draw),parser.number(json[i].lost)], time: new Date(json[i].time) });
           }
-          last = odds[i];
+          last = json[i];
         }
       }
       ep.emit('jingcaiOdds');
     }
-  }
+  };
+  var jingcaiTradePrepare = function(){
+    h  = 0;
+    p  = 1;
+    jd = -1;
+    lt = '';
+    printer.done('jcOdds');
+    printer.start('jcTrade');
+    jingcaiTradeLoop();
+  };
   //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
   var jingcaiTradeLoop = function (){
-    get(URL.jingcai_trade.replace('{day}',converter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
-  }
+    poster.get(URL.jingcai_trade.replace('{day}',converter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
+  };
   var jingcaiTradeStep = function (response) {
     var $ = cheerio.load(response.body);
     var block = $('.leftMain .block');
-    //当天没有数据、抓满了、抓完了
-    if(block.length === 0||data.count === data.tradeCount||$('.leftMain .block .blockTit a').eq(0).text() === lt){
+    //当天没有数据或已抓到最后一页
+    if(block.length === 0||$('.leftMain .block .blockTit a').eq(0).text() === lt){
       var flag = 2;
       if(h<1){
         h++;
@@ -333,7 +343,8 @@ module.exports = function (day, next, force){
         return jingcaiTradeLoop();
       }else if(flag === 2){
         printer.done('jcTrade');
-        return get(URL.bwin.replace('{day}',day), bwinStep);
+        printer.start('bwin');
+        return poster.get(URL.bwin.replace('{day}',day), bwinStep);
       }
     }else{
       lt = $('.leftMain .block .blockTit a').eq(0).text();
@@ -350,7 +361,7 @@ module.exports = function (day, next, force){
       p++;
       jingcaiTradeLoop();
     }
-  }
+  };
 
   //必发数据
   var bwinStep = function (response) {
@@ -358,22 +369,13 @@ module.exports = function (day, next, force){
     var tbody = $('#MatchTable tbody');
     data.bwinCount = tbody.length;
     tbody.each(function () {
-      var shortcut = parser.trim($(this).find('tr').eq(0).find('td').eq(0).text()),
-          home     = parser.trim($(this).find('tr').eq(0).find('td').eq(2).text()),
-          away     = parser.trim($(this).find('tr').eq(2).find('td').eq(0).text()),
-          obj      = data.shortcut[shortcut]||data.home[home]||data.away[away];
-      if(!obj){
-        data.bwinCount--;
-      }
-    });
-    tbody.each(function () {
       //解析
-      var shortcut  = parser.trim($(this).find('tr').eq(0).find('td').eq(0).text()),
-          home      = parser.trim($(this).find('tr').eq(0).find('td').eq(2).text()),
-          away      = parser.trim($(this).find('tr').eq(2).find('td').eq(0).text()),
-          bwin_home = parser.trim($(this).find('tr').eq(0).find('td').eq(10).text()),
-          bwin_draw = parser.trim($(this).find('tr').eq(1).find('td').eq(8).text()),
-          bwin_away = parser.trim($(this).find('tr').eq(2).find('td').eq(8).text());
+      var shortcut  = parser.trtd($(this),0,0),
+          home      = parser.trtd($(this),0,2),
+          away      = parser.trtd($(this),2,0),
+          bwin_home = parser.trtd($(this),0,10),
+          bwin_draw = parser.trtd($(this),1,8),
+          bwin_away = parser.trtd($(this),2,8),
           obj       = data.shortcut[shortcut]||data.home[home]||data.away[away];
       if(obj){
         if(bwin_home && bwin_draw && bwin_away){
@@ -387,33 +389,24 @@ module.exports = function (day, next, force){
           obj.score.full.home = parser.int(score[0]);
           obj.score.full.away = parser.int(score[1]);
         }
+      }else{
+        data.bwinCount--;
       }
     });
     printer.done('bwin');
     saveAll();
   };
   var saveAll = function (){
-    //保存事件响应
-    ep.after('match', data.count, function () {
-      printer.count('team',data.teamCount);
-      _.forEach(data.team,saveTeam);
+    helper.saveAll(data,ep,printer,{
+      match: saveMatch,
+      team: saveTeam,
+      game: saveGame,
+      next: function(){
+        return next(day);
+      },
+      retry: retry
     });
-    ep.after('team', data.teamCount, function () {
-      printer.count('game',data.gameCount);
-      _.forEach(data.game,saveGame);
-    });
-    ep.after('game', data.gameCount, function () {
-      return next(day);
-    });
-    ep.fail(function (err){
-      ep.unbind();
-      printer.error('mongo',err);
-      return retry();
-    });
-
-    printer.count('match',data.count);
-    _.forEach(data.match,saveMatch);
-  }
+  };
   //保存比赛
   var saveMatch = function (obj){
     Match.getMatchById(obj.mid, ep.done(function (m){
@@ -425,22 +418,7 @@ module.exports = function (day, next, force){
         }));
       //如果已存在比赛
       }else{
-        m.date    = obj.date;
-        m.odds    = obj.odds;
-        m.iid     = obj.iid;
-        m.neutral = obj.neutral;
-        if(obj.bwin){
-          m.bwin = obj.bwin;
-        }
-        if(obj.jingcai){
-          m.jingcai = obj.jingcai;
-        }
-        //已完赛更新分数
-        if(!m.done && obj.done){
-          m.score = obj.score;
-          m.card  = obj.card;
-          m.done  = obj.done;
-        }
+        _.assign(m,obj);
         m.save(ep.done('match', function (o){
           printer.save(o,true);
         }));
@@ -475,5 +453,5 @@ module.exports = function (day, next, force){
     }));
   };
 
-  get(URL.odds.replace('{day}',day), oddsStep);
+  poster.get(URL.odds.replace('{day}',day), oddsStep);
 }

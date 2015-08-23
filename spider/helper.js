@@ -12,12 +12,12 @@ needle.defaults({
 });
 
 
-exports.get = function(printer){
+exports.poster = function(printer){
   var handler = function (url,step){
     needle.get(url, function (err,response){
       //出错自动重试
-      if (err){
-        printer.error('needle',err,url);
+      if (err || response.statusCode !== 200){
+        printer.error('needle',err);
         _.delay(function(){
           handler(url,step)
         },1000);
@@ -25,20 +25,23 @@ exports.get = function(printer){
         step(response);
       }
     });
+  };
+  var jsonHandler = function (url,step){
+    handler(url,function (response){
+      var result;
+      //解析出错自动重试
+      try{
+        result = JSON.parse(response.body);
+      }catch (err) {
+        printer.error('json',err);
+        return jsonHandler(url,step);
+      }
+      return step(result);
+    });
   }
-  return handler;
+  return {get:handler,json:jsonHandler};
 }
 
-exports.json = function (data,next,printer){
-  var result;
-  try{
-    result = JSON.parse(data);
-  }catch (err) {
-    printer.error('json',err);
-    return next();
-  }
-  return result;
-}
 
 exports.intake = function (data,obj){
   [ ['game','game','gid'],
@@ -49,4 +52,25 @@ exports.intake = function (data,obj){
       data[arr[0]+'Count']++;
     }
   });
+}
+
+exports.saveAll = function (data,ep,printer,handlers){
+  //保存事件响应
+  ep.after('match', data.count, function () {
+    printer.count('team',data.teamCount);
+    _.forEach(data.team,handlers.team);
+  });
+  ep.after('team', data.teamCount, function () {
+    printer.count('game',data.gameCount);
+    _.forEach(data.game,handlers.game);
+  });
+  ep.after('game', data.gameCount, handlers.next);
+  ep.fail(function (err){
+    ep.unbind();
+    printer.error('mongo_save',err);
+    return handlers.retry();
+  });
+  //保存数据
+  printer.count('match',data.count);
+  _.forEach(data.match,handlers.match);
 }

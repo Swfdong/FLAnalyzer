@@ -23,6 +23,8 @@ var URL = {
 
 //抓某一日数据
 module.exports = function (team, next){
+  printer.header(team);
+
   var hoa   = 1,
       data  = { count:0, gameCount:0, teamCount:0, match:{}, game:{}, team:{} },
       ep    = new eventproxy();
@@ -32,16 +34,14 @@ module.exports = function (team, next){
     //防止多次调用
     retry = function(){};
   },
-  get = helper.get(printer);
-  printer.header(team);
+  poster = helper.poster(printer);
 
   //抓取赛事基本信息
-  var matchesStep = function (response) {
-    var body = helper.json(response.body,retry,printer);
-    if(!body.list){
+  var matchesStep = function (json) {
+    if(!json.list){
       return next();
     }
-    var matches = body.list;
+    var matches = json.list;
     var fids = [];
 
     data.count += matches.length;
@@ -99,42 +99,22 @@ module.exports = function (team, next){
       printer.done(DICT.HOA[hoa]);
       //是否主客场都已抓取完毕
       if(hoa ==2){
-        //保存事件响应
-        ep.after('match', data.count, function () {
-          printer.count('team',data.teamCount);
-          _.forEach(data.team,saveTeam);
-        });
-        ep.after('team', data.teamCount, function () {
-          printer.count('game',data.gameCount);
-          _.forEach(data.game,saveGame);
-        });
-        ep.after('game', data.gameCount, function () {
-          return next();
-        });
-        ep.fail(function (err){
-          ep.unbind();
-          printer.error('mongo',err);
-          return retry();
-        });
-        //保存数据
-        printer.count('match',data.count);
-        _.forEach(data.match,saveMatch);
+        saveAll();
       }else{
         hoa++;
-        get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
+        poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
       }
     });
     //抓取赔率
     for(var j = 0; j < DICT.OUZHI.length; j++){
-      get(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
+      poster.json(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
     }
   }
   //抓取指定公司的赔率数据
   var oddsStep = function (cid) {
-    return function (response) {
-      var body = helper.json(response.body,retry,printer);
-      if(body.list){
-        var odds = body.list;
+    return function (json) {
+      if(json.list){
+        var odds = json.list;
         for(var i = 0; i< odds.length; i++){
           var current = odds[i];
           var obj = data.match[parser.int(current.FIXTUREID)];
@@ -143,23 +123,29 @@ module.exports = function (team, next){
       }
       ep.emit('odds');
     }
-  }
-
+  };
+  var saveAll = function (){
+    helper.saveAll(data,ep,printer,{
+      match: saveMatch,
+      team: saveTeam,
+      game: saveGame,
+      next: function(){
+        return next();
+      },
+      retry: retry
+    });
+  };
   //保存数据
   var saveMatch = function (obj){
     Match.getMatchById(obj.mid, ep.done(function (m){
       //只更新没有记录的比赛
-      if(!m){
+      if(obj.score.full&&!m){
         //如果有比分数据才写入
-        if(obj.score.full){
-          m = new Match(obj);
-          m.save(ep.done('match', function (o){
-            printer.save(o);
-          }));
-        }else{
-          ep.emit('match');
-        }
-      }else if(!m.score.full&&obj&&obj.score.full){
+        m = new Match(obj);
+        m.save(ep.done('match', function (o){
+          printer.save(o);
+        }));
+      }else if(obj.score.full&&!m.score.full){
         m.score = obj.score;
         m.save(ep.done('match', function (o){
           printer.save(o,true);
@@ -177,7 +163,7 @@ module.exports = function (team, next){
         m.save(ep.done('game', function (o){
           printer.save(o);
         }));
-      }else if(!m.fullname){
+      }else if(!m.fullname&&obj.fullname){
         m.fullname = obj.fullname;
         m.save(ep.done('game', function (o){
           printer.save(o,true);
@@ -202,5 +188,5 @@ module.exports = function (team, next){
       }
     }));
   };
-  needle.get(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), done(matchesStep));
+  poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
 }
