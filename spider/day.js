@@ -4,7 +4,7 @@ var _           = require('lodash'),
     eventproxy  = require('eventproxy');
 
 var time        = require('../utils/time'),
-    converter   = require('../utils/converter'),
+    formatter   = require('../utils/formatter'),
     parser      = require('../utils/parser'),
     printer     = require('../printer').spider.day(),
     helper      = require('./helper');
@@ -26,8 +26,6 @@ var URL = {
   bwin:'http://www.310win.com/info/match/Betfair.aspx?date={day}'
   
 };
-
-var TODAY = converter.dateToString(new Date(Date.now()));
 
 //抓某一日数据
 module.exports = function (day, next, force){
@@ -59,57 +57,64 @@ module.exports = function (day, next, force){
       }
     });
     //不安全的方法，执行抓取到页面中的脚本，获取对应的赔率数组
+    script = script||'var ouzhiList=null,yapanList=null;';
     eval(script);
-    var list = [{l:ouzhiList||{},d:DICT.OUZHI,o:'europe'},{l:yapanList||{},d:DICT.YAPAN,o:'asia'}];
-    var tr = $('#main-tbody tr[data-mid]');
-    //如果没有数据则跳过
-    if(tr.length === 0){
-      return next(day);
-    }
-    data.count = tr.length;
-    tr.each(function () {
-      //解析代码
-      var obj  = { game:{}, home:{}, away:{}, jingcai:{spf:{},rqspf:{}}, odds:{europe:{},asia:{}} },
-          mid  = $(this).attr('data-fid'),
-          home = $(this).find('td.text_right'),
-          away = $(this).find('td.text_left');
-      obj.mid       = parser.int(mid);
-      obj.done      = false;
-      obj.neutral   = false;
-      obj.date      = day;
-      obj.shortcut  = parser.trim($(this).find('td').eq(0).text());
-      obj.time      = parser.date($(this).attr('date-dtime'));
-      obj.game.name = parser.trim($(this).find('td').eq(1).text());
-      obj.game.gid  = parser.int($(this).attr('data-mid'));
-      obj.home.name = parser.trim(home.text());
-      obj.home.tid  = parser.tid(home);
-      obj.away.name = parser.trim(away.text());
-      obj.away.tid  = parser.tid(away);
+    if(ouzhiList&&yapanList){
+      var list = [{l:ouzhiList||{},d:DICT.OUZHI,o:'europe'},{l:yapanList||{},d:DICT.YAPAN,o:'asia'}];
+      var tr = $('#main-tbody tr[data-mid]');
+      //如果没有数据则跳过
+      if(tr.length === 0){
+        return next(day);
+      }
+      data.count = tr.length;
+      tr.each(function () {
+        //解析代码
+        var obj  = { game:{}, home:{}, away:{}, jingcai:{spf:{},rqspf:{}}, odds:{europe:{},asia:{}} },
+            mid  = $(this).attr('data-fid'),
+            home = $(this).find('td.text_right'),
+            away = $(this).find('td.text_left');
+        obj.mid       = parser.int(mid);
+        obj.done      = false;
+        obj.neutral   = false;
+        obj.date      = day;
+        obj.shortcut  = parser.trim($(this).find('td').eq(0).text());
+        obj.time      = parser.date($(this).attr('date-dtime'));
+        obj.game.name = parser.trim($(this).find('td').eq(1).text());
+        obj.game.gid  = parser.int($(this).attr('data-mid'));
+        obj.home.name = parser.trim(home.text());
+        obj.home.tid  = parser.tid(home);
+        obj.away.name = parser.trim(away.text());
+        obj.away.tid  = parser.tid(away);
 
-      //更新各家赔率
-      var j,current,co;
-      list.forEach(function (cl,ci,ca){
-        if(cl.l[mid]){
-          for(j=0;j<cl.d.length;j++){
-            current = cl.d[j];
-            co = cl.l[mid][current.id];
-            if(co){
-              obj.odds[cl.o][current.name] = {
-                now: [co[0][0]||0,co[0][1]||0,co[0][2]||0],
-                first: [co[1][0]||0,co[1][1]||0,co[1][2]||0]
-              };
+        //更新各家赔率
+        var j,current,co;
+        list.forEach(function (cl,ci,ca){
+          if(cl.l[mid]){
+            for(j=0;j<cl.d.length;j++){
+              current = cl.d[j];
+              co = cl.l[mid][current.id];
+              if(co){
+                obj.odds[cl.o][current.name] = {
+                  now: [co[0][0]||0,co[0][1]||0,co[0][2]||0],
+                  first: [co[1][0]||0,co[1][1]||0,co[1][2]||0]
+                };
+              }
             }
           }
-        }
+        });
+        data.match[mid] = data.hid[obj.home.tid] = data.aid[obj.away.tid] = data.shortcut[obj.shortcut] = obj;
+        helper.intake(data,obj);
       });
-      data.match[mid] = data.hid[obj.home.tid] = data.aid[obj.away.tid] = data.shortcut[obj.shortcut] = obj;
-      helper.intake(data,obj);
-    });
-    //释放可能导致内存泄露的对象
-    ouzhiList = yapanList = null;
-    printer.done('odds');
-    printer.start('score');
-    poster.get(URL.score.replace('{day}',day), scoreStep);
+      //释放可能导致内存泄露的对象
+      ouzhiList = yapanList = null;
+      printer.done('odds');
+      printer.start('score');
+      poster.get(URL.score.replace('{day}',day), scoreStep);
+    }else{
+      //重试
+      printer.error('needle','未找到赔率数据');
+      poster.get(URL.odds.replace('{day}',day), oddsStep);
+    }
   };
 
   var jcQuery = {list:[],dict:{}};
@@ -320,7 +325,7 @@ module.exports = function (day, next, force){
   };
   //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
   var jingcaiTradeLoop = function (){
-    poster.get(URL.jingcai_trade.replace('{day}',converter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
+    poster.get(URL.jingcai_trade.replace('{day}',formatter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
   };
   var jingcaiTradeStep = function (response) {
     var $ = cheerio.load(response.body);
@@ -357,7 +362,7 @@ module.exports = function (day, next, force){
           data.tradeCount++;
         }
       });
-      printer.progress('jcTrade',data.tradeCount,data.count,' /'+converter.dateToString(time.tomorrow(day,jd))+'/'+h+'/'+p);
+      printer.progress('jcTrade',data.tradeCount,data.count,' /'+formatter.dateToString(time.tomorrow(day,jd))+'/'+h+'/'+p);
       p++;
       jingcaiTradeLoop();
     }

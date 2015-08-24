@@ -3,7 +3,7 @@ var mongoose    = require('mongoose'),
 
 var dbconfig    = require('../configs/database');
 var time        = require('../utils/time'),
-    converter   = require('../utils/converter'),
+    formatter   = require('../utils/formatter'),
     printer     = require('../printer').spider.main();
     
 var daySpider   = require('./day'),
@@ -22,9 +22,9 @@ mongoose.connection.on('error', function (err) {
 
 module.exports = function (force){
   var count     = 0,
-      start     = converter.dateToString(new Date(Date.now())),
+      start     = formatter.dateToString(new Date(Date.now())),
       current   = '';
-  //start = '2015-08-01';
+  //start = '2013-08-31';
   //clear();
   time.start();
 
@@ -39,7 +39,7 @@ module.exports = function (force){
       printer.done('day',start,d);
       runTeam();
     }else{
-      current = converter.dateToString(time.yesterday(d));
+      current = formatter.dateToString(time.yesterday(d));
       if(e){
         current = d;
       }
@@ -80,7 +80,7 @@ module.exports = function (force){
     }
   }
   printer.start('all');
-  runDay();
+  runTeam();
 };
 
 var clear = function(){

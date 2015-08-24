@@ -1,5 +1,4 @@
-var _           = require('lodash'),
-    validator   = require('validator');
+var _           = require('lodash');
 
 var reciprocal = function (n){
   if(!n) return 0;
@@ -21,99 +20,6 @@ var fixFloat = exports.fixFloat = function (number){
   return Math.round(number*10000)/10000;
 }
 
-exports.dateToString = function (d){
-  return d.getFullYear()+'-'+fixedInt((d.getMonth()+1),2)+'-'+fixedInt(d.getDate(),2);
-}
-
-var fixedInt = exports.fixedInt = function (num,dig){
-  var str = ''+num;
-  while(str.length<dig){
-    str = '0'+str;
-  }
-  return str;
-}
-
-var fixFloat = exports.fixFloat = function (number){
-  return Math.round(number*10000)/10000;
-}
-
-var signedNumber = exports.signedNumber = function (num){
-  var str = ''+num;
-  if(num > 0){
-    str = '+'+str;
-  }
-  return str;
-}
-
-var fixedNumber = exports.fixedNumber = function (num,dig){
-  if(num===undefined||num===null){
-    return ' - ';
-  }
-  dig = dig|4;
-  var str = ''+num;
-  if(str.length < dig){
-    if(str.indexOf('.') === -1){
-      str+='.0';
-    }
-    if(str.indexOf('0') === 0){
-      while(str.length<dig){
-        str = str+'0';
-      }
-    }else{
-      while(str.length<dig){
-        if(str.indexOf('.')==Math.ceil((dig-1)/2)){
-          str = str+'0';
-        }else{
-          str = '0'+str;
-        }
-      }
-    }
-  }else if(str.length > dig){
-    str = str.substr(0,dig);
-  }
-  
-  return str;
-}
-
-var fixedBySpace = exports.fixedBySpace = function (s,dig){
-  if(s===undefined||s===null){
-    return ' - ';
-  }else if(_.isArray(s)){
-    var r = _.clone(s);
-    for(var i=0;i<r.length;i++){
-      r[i] = fixedBySpace(r[i],dig);
-    }
-    return s;
-  }else{
-    dig = dig|5;
-    var str = ''+s;
-    while(str.length<dig){
-      str = str+' ';
-    }
-    return str;
-  }
-}
-
-exports.numberToString = function (num){
-  if(num===undefined||num===null||isNaN(num)){
-    return '  -  ';
-  }
-  if(num<1&&num>0.001){
-    return fixedNumber(Math.round(num*10000)/100,5)+'%';
-  }else if(num==1||num<0.001){
-    return '  '+String(num)+'  ';
-  }
-  return String(num);
-}
-
-/*
-exports.score = function (score){
-  if( score.full !== undefined ){
-    return [score.full.home/10, score.full.away/10];
-  }
-  return [score[0]*10, score[1]*10];
-}
-*/
 exports.profit = function (raw){
   var result = [0,0,0];
   //必发盈亏位数对
@@ -127,62 +33,6 @@ exports.profit = function (raw){
   }
   
   return result;
-}
-
-//要么说有用的话要么闭嘴
-exports.merge = function (){
-  var arr = [1,1,1];
-  if(arguments[0].length==2){
-    arr = [1,1];
-  }
-  var max = 0;
-  for(var i = 0;i<arguments.length;i++){
-    max = Math.max(max,Math.max.apply(null, arguments[i]));
-  } 
-  for(var j = 0;j<arr.length;j++){
-    for(i = 0;i<arguments.length;i++){
-      if(max<=arguments[i][j]){
-        arr[j] = arguments[i][j];
-        break;
-      }
-      arr[j] = Math.min(arr[j],arguments[i][j]);
-    }
-  }
-  return arr;
-}
-
-exports.high = function (){
-  var arr = [0,0,0];
-  if(arguments[0].length==2){
-    arr = [1,1];
-  }
-  for(var i = 0;i<arr.length;i++){
-    for(var j = 0;j<arguments.length;j++){
-      arr[i] = Math.max(arr[i],arguments[j][i]);
-    }
-  }
-  return arr;
-}
-
-exports.average = function (){
-  var arr = [0,0,0];
-  if(arguments[0].length==2){
-    arr = [0,0];
-  }
-  var max = 0;
-  for(var i = 0;i<arguments.length;i++){
-    max = Math.max(max,Math.max.apply(null, arguments[i]));
-  }
-  for(i = 0;i<arguments.length;i++){
-    for(var j = 0;j<arr.length;j++){
-      arr[j] += arguments[i][j];
-      
-    }
-  }
-  for(i = 0;i<arr.length;i++){
-    arr[i]/= arguments.length;
-  }
-  return arr;
 }
 
 exports.score = function (score){
@@ -244,35 +94,12 @@ var guess = function (raw){
   return result;
 }
 
-exports.probability = function (probability){
-  return [probability.home, probability.draw, probability.away];
-}
-
 var diff = exports.diff = function (a, b){
   var result = [];
   for(var i = 0;i<a.length;i++){
     result.push(0.5+(b[i]-a[i])/a[i]);
   }
   return result;
-}
-
-exports.oddsDiff = function (odds, converter){
-  if(odds.first&&odds.now){
-    return converter(odds.first).concat(diff(converter(odds.first),converter(odds.now)));
-    //return converter(odds.first).concat(converter(odds.now));
-  }
-  return undefined;
-}
-
-exports.predictDiff = function (a, b){
-  if(a&&b){
-    var result = [a[0],a[1],a[2]];
-    for(var i = 0;i<a.length;i++){
-      result.push((Math.abs(b[i]-a[i])/a[i]));
-    }
-    return result;
-  }
-  return undefined;
 }
 
 exports.percent = function (raw){

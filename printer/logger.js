@@ -3,7 +3,7 @@ var _           = require('lodash'),
     colors      = require('colors'),
     ansi        = require('ansi'),
     time        = require('util'),
-    converter   = require('../utils/converter'),
+    formatter   = require('../utils/formatter'),
     cursor      = ansi(process.stdout);
 
 var DICT        = require('../configs/printer').dict;
@@ -65,11 +65,11 @@ module.exports    = function(logger){
       var result = [odds.now[0],odds.now[1],odds.now[2]];
       for(var i=0;i<3;i++){
         if(result[i]<odds.first[i]){
-          result[i] = converter.fixedBySpace(result[i]).green;
+          result[i] = formatter.fixedBySpace(result[i]).green;
         }else if(result[i]>odds.first[i]){
-          result[i] = converter.fixedBySpace(result[i]).red;
+          result[i] = formatter.fixedBySpace(result[i]).red;
         }else{
-          result[i] = converter.fixedBySpace(result[i]);
+          result[i] = formatter.fixedBySpace(result[i]);
         }
       }
       return result;
@@ -77,12 +77,12 @@ module.exports    = function(logger){
     logger.log('欧赔\t\t主胜 \t平局 \t主负 \t赔付率'.grey);
     _.forIn(DICT.COMPANY,function (name,key){
       var data = match.odds.europe[key];
-      var first = converter.fixedBySpace(data.first);
+      var first = formatter.fixedBySpace(data.first);
       if(first[0]){
         var ud = updown(data);
         line(true);
-        logger.log(name+' \t'+ud[0]+'\t'+ud[1]+'\t'+ud[2]+'\t'+converter.fixedNumber(Match.claimRatio(data.now)));
-        logger.log('        \t'+first[0]+'\t'+first[1]+'\t'+first[2]+'\t'+converter.fixedNumber(Match.claimRatio(data.first)));
+        logger.log(name+' \t'+ud[0]+'\t'+ud[1]+'\t'+ud[2]+'\t'+formatter.fixedNumber(Match.claimRatio(data.now)));
+        logger.log('        \t'+first[0]+'\t'+first[1]+'\t'+first[2]+'\t'+formatter.fixedNumber(Match.claimRatio(data.first)));
       }
     });
   },
@@ -91,45 +91,45 @@ module.exports    = function(logger){
       var bwin = _.clone(match.bwin);
       for(var i=0;i<bwin.length;i++){
         if(bwin[i]<-500000){
-          bwin[i] = converter.fixedBySpace(bwin[i],6).green;
+          bwin[i] = formatter.fixedBySpace(bwin[i],6).green;
         }else if(bwin[i]>500000){
-          bwin[i] = converter.fixedBySpace(bwin[i],6).red;
+          bwin[i] = formatter.fixedBySpace(bwin[i],6).red;
         }else{
-          bwin[i] = converter.fixedBySpace(bwin[i],6);
+          bwin[i] = formatter.fixedBySpace(bwin[i],6);
         }
       }
-      line();
-      logger.log('必发盈亏  \t主胜 \t平局 \t主负'.grey);
-      logger.log('         \t'+bwin[0]+'\t'+bwin[1]+'\t'+bwin[2]);
+      line(true);
+      logger.log('必发盈亏  \t'+bwin[0]+'\t'+bwin[1]+'\t'+bwin[2]);
     }
   },
   jingcaiProfits = function (match){
-    if(match.tradeRatio()){
+    if(match.jingcai.spf.ratio){
       var jingcaiTrade = _.clone(match.jingcai.spf.trade);
       for(var i=0;i<jingcaiTrade.length;i++){
         if(jingcaiTrade[i]>10000){
-          jingcaiTrade[i] = converter.fixedBySpace(jingcaiTrade[i],6).red;
+          jingcaiTrade[i] = formatter.fixedBySpace(jingcaiTrade[i],6).red;
         }else{
-          jingcaiTrade[i] = converter.fixedBySpace(jingcaiTrade[i],6);
+          jingcaiTrade[i] = formatter.fixedBySpace(jingcaiTrade[i],6);
         }
       }
-      var jingcaiRatio = match.tradeRatio();
-      var jingcaiSp = match.jingcai.spf.sp[match.jingcai.spf.sp.length-1].data;
+      var jingcaiRatio = match.jingcai.spf.ratio;
+      var jingcaiSp = match.jingcai.spf.now;
       var jingcaiPb = Match.probability(jingcaiSp);
       for(var i=0;i<jingcaiRatio.length;i++){
-        if(jingcaiRatio[i]-jingcaiPb[i]>=0.1){
-          jingcaiRatio[i] = converter.fixedNumber(jingcaiRatio[i],6).green;
-        }else if(jingcaiRatio[i]-jingcaiPb[i]<=-0.1){
-          jingcaiRatio[i] = converter.fixedNumber(jingcaiRatio[i],6).red;
+        if(jingcaiRatio[i]-jingcaiPb[i]>=0.15){
+          jingcaiRatio[i] = formatter.fixedNumber(jingcaiRatio[i],6).green;
+        }else if(jingcaiRatio[i]-jingcaiPb[i]<=-0.15){
+          jingcaiRatio[i] = formatter.fixedNumber(jingcaiRatio[i],6).red;
         }else{
-          jingcaiRatio[i] = converter.fixedNumber(jingcaiRatio[i],6);
+          jingcaiRatio[i] = formatter.fixedNumber(jingcaiRatio[i],6);
         }
-        jingcaiPb[i] = converter.fixedNumber(jingcaiPb[i],6);
+        if(match.jingcai.spf.results){
+          jingcaiSp[i] = match.jingcai.spf.results[i]?String(jingcaiSp[i]).inverse:jingcaiSp[i];
+        }
+        jingcaiPb[i] = formatter.fixedNumber(jingcaiPb[i],6);
       }
-      line();
-      logger.log('竞彩数据  \t主胜 \t平局 \t主负'.grey);
       line(true);
-      logger.log('赔率     \t'+jingcaiSp[0]+'\t'+jingcaiSp[1]+'\t'+jingcaiSp[2]);
+      logger.log('竞彩赔率 \t'+jingcaiSp[0]+'\t'+jingcaiSp[1]+'\t'+jingcaiSp[2]);
       line(true);
       logger.log('成交量   \t'+jingcaiTrade[0]+'\t'+jingcaiTrade[1]+'\t'+jingcaiTrade[2]);
       line(true);
@@ -241,7 +241,7 @@ module.exports    = function(logger){
       logger.log(JSON.stringify(obj,'','  '));
     },
     match: function (match){
-      header('\n'+converter.dateToString(match.time).grey+'\t'+match.shortcut+(' '+match.game.name+' ').red+match.home.name+' VS '.dim.grey+match.away.name+'\n');
+      header('\n'+formatter.dateToString(match.time).grey+'\t'+(match.shortcut||'')+(' '+match.game.name+' ').red+match.home.name+' VS '.dim.grey+match.away.name+'\n');
       europeOdds(match);
       bwinProfits(match);
       jingcaiProfits(match);

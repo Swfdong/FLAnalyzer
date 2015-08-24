@@ -120,38 +120,63 @@ var MatchSchema = new Schema({
   }
 });
 
-//根据比分计算赛果
-MatchSchema.methods.results = function (type){
-  o = { home:this.score.full.home, away:this.score.full.away };
-  if(o.home===undefined){
+//虚拟属性
+['spf','rqspf'].forEach(function (jcType){
+  //初赔和终赔
+  MatchSchema.virtual('jingcai.'+jcType+'.first').get(function(){
+    if(this.jingcai[jcType].sp&&this.jingcai[jcType].sp[0]){
+      return this.jingcai[jcType].sp[0].data;
+    }
     return undefined;
-  }
-  if(type === "handicap"){
-    o.home += this.jingcai.handicap[3];
-  }
-  if(o.home > o.away){
-    return [1,0,0];
-  }else if(o.home == o.away){
-    return [0,1,0];
-  }
-  return [0,0,1];
-}
+  });
+  MatchSchema.virtual('jingcai.'+jcType+'.now').get(function(){
+    if(this.jingcai[jcType].sp&&this.jingcai[jcType].sp[0]){
+      return this.jingcai[jcType].sp[this.jingcai[jcType].sp.length-1].data;
+    }
+    return undefined;
+  });
+  //成交比例
+  MatchSchema.virtual('jingcai.'+jcType+'.ratio').get(function(){
+    if(this.jingcai[jcType].trade&&this.jingcai[jcType].trade[0]){
+      var trade = this.jingcai[jcType].trade;
+      var total = Math.floor(trade[0]+trade[1]+trade[2]);
+      return [trade[0]/total,trade[1]/total,trade[2]/total];
+    }
+    return undefined;
+  });
+  //根据比分计算赛果
+  MatchSchema.virtual('jingcai.'+jcType+'.results').get(function(){
+    if(this.score.full.home){
+      var o = { home:this.score.full.home, away:this.score.full.away };
+      if(jcType === "rqspf"){
+        o.home += this.jingcai.rqspf.rq;
+      }
+      if(o.home > o.away){
+        return [1,0,0];
+      }else if(o.home === o.away){
+        return [0,1,0];
+      }
+      return [0,0,1];
+    }
+    return undefined;
+  });
+  MatchSchema.virtual('jingcai.'+jcType+'.result').get(function(){
+    if(this.score.full.home){
+      var o = { home:this.score.full.home, away:this.score.full.away };
+      if(jcType === "rqspf"){
+        o.home += this.jingcai.rqspf.rq;
+      }
+      if(o.home > o.away){
+        return 3;
+      }else if(o.home === o.away){
+        return 1;
+      }
+      return 0;
+    }
+    return undefined;
+  });
+});
 
-MatchSchema.methods.result = function (type){
-  o = { home:this.score.full.home, away:this.score.full.away };
-  if(o.home===undefined){
-    return {error:1};
-  }
-  if(type === "handicap"){
-    o.home += this.jingcai.rqspf.rq;
-  }
-  if(o.home > o.away){
-    return 3;
-  }else if(o.home == o.away){
-    return 1;
-  }
-  return 0;
-}
 //是否为主队
 MatchSchema.methods.homeOrAway = function (team,reverse){
   if(this.home.tid===team.tid||this.home.name===team.name){
@@ -171,16 +196,6 @@ MatchSchema.methods.isWin = function (team){
     return dict[this.result()];
   }
   return -1;
-}
-
-//计算
-MatchSchema.methods.tradeRatio = function (){
-  if(this.jingcai.spf.trade&&this.jingcai.spf.trade[0]){
-    var trade = this.jingcai.spf.trade;
-    var total = Math.floor(trade[0]+trade[1]+trade[2]);
-    return [trade[0]/total,trade[1]/total,trade[2]/total];
-  }
-  return undefined;
 }
 
 //赔付率
@@ -205,26 +220,17 @@ MatchSchema.statics.getMatchesByDate = function (date, callback){
   this.find({'date': date}).sort({time:1}).exec(callback);
 }
 
-MatchSchema.statics.getMatchesByHomeTeam = function (team, game, time, limit, callback){
-  var q = {'home.tid':team.tid, done:true};
-  if(game){
-    q['game.name'] = game;
+MatchSchema.statics.getMatchesByTeam = function (team, query, limit, callback){
+  var q;
+  if(query.home){
+    q = {'home.tid':team.tid, done:true};
+  }else if(query.away){
+    q = {'away.tid':team.tid, done:true};
+  }else{
+    q = {$or:[{'home.tid':team.tid},{'away.tid':team.tid}],done:true};
   }
-  this.find(q).lt('time',time).limit(limit).sort({time:-1}).exec(callback);
-}
-
-MatchSchema.statics.getMatchesByAwayTeam = function (team, game, time, limit, callback){
-  var q = {'away.tid':team.tid, done:true};
-  if(game){
-    q['game.name'] = game;
-  }
-  this.find(q).lt('time',time).limit(limit).sort({time:-1}).exec(callback);
-}
-
-MatchSchema.statics.getMatchesByTeam = function (team, game, time, limit, callback){
-  var q = {$or:[{'home.tid':team.tid},{'away.tid':team.tid}],done:true};
-  if(game){
-    q['game.name'] = game;
+  if(query.game){
+    q['game.gid'] = game.gid;
   }
   this.find(q).lt('time',time).limit(limit).sort({time:-1}).exec(callback);
 }
