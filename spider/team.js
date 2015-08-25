@@ -4,7 +4,6 @@ var needle      = require('needle'),
     eventproxy  = require('eventproxy');
 
 var time        = require('../utils/time'),
-    converter   = require('../utils/converter'),
     parser      = require('../utils/parser'),
     printer     = require('../printer').spider.team(),
     helper      = require('./helper');
@@ -99,7 +98,15 @@ module.exports = function (team, next){
       printer.done(DICT.HOA[hoa]);
       //是否主客场都已抓取完毕
       if(hoa ==2){
-        saveAll();
+        if(data.count>0){
+          saveAll();
+        //如果碰上没有数据的极冷门球队
+        }else{
+          ep.on('team',function(){
+            next()
+          });
+          saveTeam(team);
+        }
       }else{
         hoa++;
         poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
