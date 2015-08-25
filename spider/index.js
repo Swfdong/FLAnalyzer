@@ -80,7 +80,7 @@ module.exports = function (force){
     }
   }
   printer.start('all');
-  runTeam();
+  runDay();
 };
 
 var clear = function(){

@@ -146,7 +146,7 @@ var MatchSchema = new Schema({
   });
   //根据比分计算赛果
   MatchSchema.virtual('jingcai.'+jcType+'.results').get(function(){
-    if(this.score.full.home){
+    if(this.score.full.home !== undefined){
       var o = { home:this.score.full.home, away:this.score.full.away };
       if(jcType === "rqspf"){
         o.home += this.jingcai.rqspf.rq;
@@ -161,7 +161,7 @@ var MatchSchema = new Schema({
     return undefined;
   });
   MatchSchema.virtual('jingcai.'+jcType+'.result').get(function(){
-    if(this.score.full.home){
+    if(this.score.full.home !== undefined){
       var o = { home:this.score.full.home, away:this.score.full.away };
       if(jcType === "rqspf"){
         o.home += this.jingcai.rqspf.rq;
@@ -178,22 +178,23 @@ var MatchSchema = new Schema({
 });
 
 //是否为主队
-MatchSchema.methods.homeOrAway = function (team,reverse){
-  if(this.home.tid===team.tid||this.home.name===team.name){
-    return(reverse?'away':'home');
-  }else if(this.away.tid===team.tid||this.away.name===team.name){
-    return(reverse?'home':'away');
+MatchSchema.methods.homeOrAway = function (team){
+  if(this.home.tid === team.tid){
+    return 0;
+  }else if(this.away.tid === team.tid){
+    return 1;
   }
-  return 'not';
+  return -1;
 }
 
 //是否赢球
 MatchSchema.methods.isWin = function (team){
-  if(this.home.tid===team.tid||this.home.name===team.name){
-    return this.result();
-  }else if(this.away.tid===team.tid||this.away.name===team.name){
-    var dict = [3,1,0,0];
-    return dict[this.result()];
+  if(this.jingcai.spf.result!==undefined){
+    if(this.home.tid === team.tid){
+      return this.jingcai.spf.result;
+    }else if(this.away.tid === team.tid){
+      return [3,1,0,0][this.jingcai.spf.result];
+    }
   }
   return -1;
 }
@@ -221,6 +222,7 @@ MatchSchema.statics.getMatchesByDate = function (date, callback){
 }
 
 MatchSchema.statics.getMatchesByTeam = function (team, query, limit, callback){
+  query.time = query.time||Date.now();
   var q;
   if(query.home){
     q = {'home.tid':team.tid, done:true};
@@ -232,7 +234,16 @@ MatchSchema.statics.getMatchesByTeam = function (team, query, limit, callback){
   if(query.game){
     q['game.gid'] = game.gid;
   }
-  this.find(q).lt('time',time).limit(limit).sort({time:-1}).exec(callback);
+  this.find(q).lt('time',query.time).limit(limit).sort({time:-1}).exec(callback);
+}
+
+MatchSchema.statics.getMatchesByTeams = function (teams, query, limit, callback){
+  query.time = query.time||Date.now();
+  var q = {$or:[{'home.tid':teams[0].tid,'away.tid':teams[1].tid},{'home.tid':teams[1].tid,'away.tid':teams[0].tid}],done:true};
+  if(query.game){
+    q['game.gid'] = game.gid;
+  }
+  this.find(q).lt('time',query.time).limit(limit).sort({time:-1}).exec(callback);
 }
 
 MatchSchema.statics.getMatchesByGame = function (game, limit, callback){

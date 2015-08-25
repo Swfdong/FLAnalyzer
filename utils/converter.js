@@ -28,10 +28,8 @@ exports.profit = function (raw){
   for(var i = 0; i<3; i++){
     var q = raw[i]<0?-1:1;
     var s = String(Math.abs(raw[i]));
-    result[i] = 0.5 + (digi[s.length-1]+parseInt(s.substr(0,1)) * factor[s.length-1]) * q;
-    result[i] = Math.max(0,Math.min(1,result[i]));
+    result[i] = 2* (digi[s.length-1]+parseInt(s.substr(0,1)) * factor[s.length-1]) * q;
   }
-  
   return result;
 }
 
