@@ -1,3 +1,3 @@
-var spider    = require('./spider/index.js');
+var spider    = require('./app/spider/index.js');
 
 spider();

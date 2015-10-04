@@ -53,7 +53,7 @@ module.exports = function (match, handler){
       next();
     }));
   };
-  
+
   var next = function (){
     handler(result);
   };
