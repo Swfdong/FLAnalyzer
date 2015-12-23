@@ -129,7 +129,13 @@ module.exports = function (team, next){
   //抓取球队身价数据
   var priceStep = function (response) {
     var $   = cheerio.load(response.body);
-    data.team[team.tid].price = parser.price($('.itm_bd table tr').eq(2).find('td').eq(1).text());
+    var price = parser.price($('.itm_bd table tr').eq(2).find('td').eq(1).text());
+    if(data.count>0){
+      data.team[team.tid].price = price;
+    //如果碰上没有数据的情况
+    }else{
+      team.price = price;
+    }
     printer.done('price');
     poster.get(URL.future.replace('{tid}',team.tid), futureStep);
   };
@@ -192,7 +198,7 @@ module.exports = function (team, next){
       saveTeam(team);
     }
   };
-  
+
   //保存全部数据
   var saveAll = function (){
     helper.saveAll(data,ep,printer,{
@@ -251,6 +257,7 @@ module.exports = function (team, next){
           printer.save(o);
         }));
       }else if(m.tid === team.tid){
+        m.price = team.price;
         m.updated = true;
         m.save(ep.done('team'));
       }else{

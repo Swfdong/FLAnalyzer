@@ -180,7 +180,7 @@ module.exports    = function(logger){
       home:   '主场数据',
       away:   '客场数据',
       price:  '球队身价',
-      futrue: '未来赛事'
+      future: '未来赛事'
     },
     main: {
       day:{
