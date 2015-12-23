@@ -2,13 +2,15 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 
 var MatchSchema = new Schema({
-  //是否为简单场次（简单场次多为早期赛事，可能会缺少部分赔率数据、红黄牌数据，仅用作胜负关系参考）
+  //是否为简单场次（简单场次用于记录未来赛事和早期赛事，可能会缺少部分赔率数据、红黄牌数据，仅用作胜负关系参考）
   simple: { type: Boolean, default: false },
   //赛事
   game: {
     name: { type: String, index: true },
     gid: { type: Number, index: true }
   },
+  //赛季编号
+  sid: { type: Number, index: true },
   //比赛所在日期（注：是国内竞彩的对应日期）
   date: {type: String, index: true },
   //开赛时间

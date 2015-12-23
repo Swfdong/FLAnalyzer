@@ -18,15 +18,18 @@ var Match       = require('../models/match'),
 var URL = {
   matches:'http://liansai.500.com/index.php?c=teams&a=ajax_fixture&hoa={hoa}&tid={tid}&records=100',
   odds:'http://liansai.500.com/index.php?c=teams&a=ajax_pl&cid={cid}&fids={fids}',
+  price:'http://liansai.500.com/team/{tid}/',
+  future:'http://liansai.500.com/team/{tid}/teamfixture/'
+  
 };
+var GAME_NAME_DICT;
 
 //抓某一日数据
 module.exports = function (team, next){
   printer.header(team);
-
-  var hoa   = 1,
-      data  = { count:0, gameCount:0, teamCount:0, match:{}, game:{}, team:{} },
-      ep    = new eventproxy();
+  var hoa     = 1,
+      data    = { count:0, gameCount:0, teamCount:0, match:{}, game:{}, team:{} },
+      ep      = new eventproxy();
   //处理抓取错误
   var retry = function (){
     next(true);
@@ -35,7 +38,7 @@ module.exports = function (team, next){
   },
   poster = helper.poster(printer);
 
-  //抓取赛事基本信息
+  //抓取赛事数据
   var matchesStep = function (json) {
     if(!json.list){
       return next();
@@ -98,15 +101,7 @@ module.exports = function (team, next){
       printer.done(DICT.HOA[hoa]);
       //是否主客场都已抓取完毕
       if(hoa ==2){
-        if(data.count>0){
-          saveAll();
-        //如果碰上没有数据的极冷门球队
-        }else{
-          ep.on('team',function(){
-            next()
-          });
-          saveTeam(team);
-        }
+        poster.get(URL.price.replace('{tid}',team.tid), priceStep);
       }else{
         hoa++;
         poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
@@ -131,6 +126,72 @@ module.exports = function (team, next){
       ep.emit('odds');
     }
   };
+  //抓取球队身价数据
+  var priceStep = function (response) {
+    var $   = cheerio.load(response.body);
+    data.team[team.tid].price = parser.price($('.itm_bd table tr').eq(2).find('td').eq(1).text());
+    printer.done('price');
+    poster.get(URL.future.replace('{tid}',team.tid), futureStep);
+  };
+
+  //抓取球队未来赛事数据
+  var futureStep = function (response) {
+    var $   = cheerio.load(response.body);
+    var tr  = $('#f_table tr');
+    var trc = 0;
+    tr.each(function(){
+      //仅获取最近三场未来赛事
+      if(trc<3){
+        var gname = parser.trim($(this).find('td').eq(0).text());
+        var mdate = parser.trim($(this).find('td.td_time').text());
+        var home = $(this).find('td.td_lteam');
+        var away = $(this).find('td.td_rteam');
+        var obj = {
+          simple: true,
+          done: false,
+          mid: parser.int($(this).attr('id')),
+          sid: parser.sid($(this).find('td').eq(0)),
+          game:{
+            gid: GAME_NAME_DICT[gname],
+            name: gname
+          },
+          date: mdate,
+          time: new Date(mdate),
+          home:{
+            tid: parser.tid(home),
+            name: parser.trim(home.text())
+          },
+          away:{
+            tid: parser.tid(away),
+            name: parser.trim(away.text())
+          },
+          score:{}
+        };
+        //没有数据时才保存
+        if(!data.match[obj.mid]){
+          data.count++;
+          data.match[obj.mid] = obj;
+          helper.intake(data,obj);
+        }
+        trc++;
+      }
+    });
+    printer.done('future');
+    preSave();
+  };
+  var preSave = function (){
+    if(data.count>0){
+      saveAll();
+    //如果碰上没有数据的冷门球队
+    }else{
+      ep.on('team',function(){
+        next()
+      });
+      saveTeam(team);
+    }
+  };
+
+  //保存全部数据
   var saveAll = function (){
     helper.saveAll(data,ep,printer,{
       match: saveMatch,
@@ -145,13 +206,13 @@ module.exports = function (team, next){
   //保存数据
   var saveMatch = function (obj){
     Match.getMatchById(obj.mid, ep.done(function (m){
-      //只更新没有记录的比赛
-      if(obj.score.full&&!m){
-        //如果有比分数据才写入
+      //只更新没有记录且有比分的比赛
+      if(!m&&((obj.done&&obj.score.full)||!obj.done)){
         m = new Match(obj);
         m.save(ep.done('match', function (o){
           printer.save(o);
         }));
+      //如果有赛事但没有储存比分数据
       }else if(obj.score.full&&!m.score.full){
         m.score = obj.score;
         m.save(ep.done('match', function (o){
@@ -195,5 +256,17 @@ module.exports = function (team, next){
       }
     }));
   };
-  poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
+
+  //获取球队名字典并开始抓取
+  if(GAME_NAME_DICT){
+    poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
+  }else{
+    Game.getAllGames(ep.done(function(gs){
+      GAME_NAME_DICT = {};
+      gs.forEach(function (g){
+        GAME_NAME_DICT[g.name] = g.gid;
+      });
+      poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
+    }));
+  }
 }

@@ -4,9 +4,13 @@ var Schema = mongoose.Schema;
 var TeamSchema = new Schema({
   //唯一编号
   tid: { type: Number, index: true, unique: true },
-  //队名
+  //球队名
   name: { type: String, index: true },
+  //球队全名
   fullname: { type: String },
+  //球队当前身价
+  price: { type: Number },
+  //更新标记
   updated: {type: Boolean, default: false, index: true }
 });
 

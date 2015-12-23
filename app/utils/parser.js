@@ -31,6 +31,13 @@ exports.tid = function (el){
   return 0;
 }
 
+exports.sid = function (el){
+  if(el.find('a').attr('href')){
+    return int(el.find('a').attr('href').match("http://liansai.500.com/zuqiu-([0-9]+)/")[1]);
+  }
+  return 0;
+}
+
 exports.trtd = function (el,tr,td){
   return exports.trim(el.find('tr').eq(tr).find('td').eq(td).text());
 }
@@ -49,4 +56,12 @@ exports.score = function (str){
 
 exports.handicap = function (str){
   return parseInt(str.substr(1,2));
+}
+
+exports.price = function (str){
+  //如果有球队身价
+  if(str.indexOf('球队身价')!=-1&&str.indexOf('--')==-1&&str.indexOf('€')!==-1){
+    return parseInt(str.substring(str.indexOf('€')+2,str.indexOf('万')));
+  }
+  return 0;
 }
