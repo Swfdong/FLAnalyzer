@@ -20,18 +20,20 @@ mongoose.connection.on('error', function (err) {
   printer.error('mongo_conn',err);
 }); 
 
-module.exports = function (force){
+module.exports = function (force,skip,clear){
   var count     = 0,
       start     = formatter.dateToString(new Date(Date.now())),
       current   = '';
-  //start = '2013-08-31';
-  //clear();
+  skip = skip||[];
+  if(clear){
+    clearAll();
+  }
   time.start();
 
   var runDay = function (){
     current = start;
     printer.start('day');
-    daySpider(current,nextDay,force);
+    daySpider(current,nextDay,force,skip);
   };
 
   var nextDay = function(d,all,e){
@@ -43,7 +45,7 @@ module.exports = function (force){
       if(e){
         current = d;
       }
-      daySpider(current,nextDay,force);
+      daySpider(current,nextDay,force,skip);
     }
   };
 
@@ -83,14 +85,14 @@ module.exports = function (force){
   runDay();
 };
 
-var clear = function(){
+var clearAll = function(){
   Match.removeAll(function(err){
-    console.log('ALL MATCHES REMOVED!!!');
+    console.log('已移除全部赛事数据！');
   });
   Team.removeAll(function(err){
-    console.log('ALL TEAMS REMOVED!!!');
+    console.log('已移除全部球队数据！');
   });
   Game.removeAll(function(err){
-    console.log('ALL GAMES REMOVED!!!');
+    console.log('已移除全部联赛数据！');
   });
 };

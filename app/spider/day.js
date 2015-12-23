@@ -28,7 +28,7 @@ var URL = {
 };
 
 //抓某一日数据
-module.exports = function (day, next, force){
+module.exports = function (day, next, force, skip){
   printer.header(day);
 
   var day_arr = day.split('-'),
@@ -110,8 +110,7 @@ module.exports = function (day, next, force){
       //释放可能导致内存泄露的对象
       ouzhiList = yapanList = null;
       printer.done('odds');
-      printer.start('score');
-      poster.get(URL.score.replace('{day}',day), scoreStep);
+      step();
     }else{
       //重试
       printer.error('needle','未找到赔率数据');
@@ -164,8 +163,7 @@ module.exports = function (day, next, force){
       }
     });
     printer.done('score');
-    printer.start('live');
-    poster.get(URL.live.replace('{day}',day), liveStep);
+    step();
   };
 
   //红黄牌数据
@@ -264,12 +262,11 @@ module.exports = function (day, next, force){
       });
       //如符合所有条件则中止更新
       if(ms.length >= data.count && alldone && force!==true){
-        console.info('当日数据已为最新，无需更新');
+        console.info('当日数据已为最新，无需更新。');
         return next(day,alldone);
       }else{
         tl = rl = jcQuery.list.length;
-        printer.start('jcOdds');
-        return jingcaiOddsLoop();
+        step();
       }
     }));
   };
@@ -281,7 +278,7 @@ module.exports = function (day, next, force){
       ql = Math.min(4,rl);
       rl -= ql;
     }else{
-      return jingcaiTradePrepare();
+      return jingcaiOddsDone();
     }
     //竞彩赔率抓取完成
     ep.after('jingcaiOdds',ql,function(){
@@ -289,7 +286,7 @@ module.exports = function (day, next, force){
       if(rl>0){
         jingcaiOddsLoop();
       }else{
-        return jingcaiTradePrepare();
+        return jingcaiOddsDone();
       }
     });
     printer.progress('jcOdds',tl-rl,tl);
@@ -316,16 +313,18 @@ module.exports = function (day, next, force){
       ep.emit('jingcaiOdds');
     }
   };
-  var jingcaiTradePrepare = function(){
+  var jingcaiOddsDone = function(){
+    printer.done('jcOdds');
+    step();
+  };
+  //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
+  var jingcaiTradeStart = function (){
     h  = 0;
     p  = 1;
     jd = -1;
     lt = '';
-    printer.done('jcOdds');
-    printer.start('jcTrade');
     jingcaiTradeLoop();
-  };
-  //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
+  }
   var jingcaiTradeLoop = function (){
     poster.get(URL.jingcai_trade.replace('{day}',formatter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
   };
@@ -350,8 +349,7 @@ module.exports = function (day, next, force){
         return jingcaiTradeLoop();
       }else if(flag === 2){
         printer.done('jcTrade');
-        printer.start('bwin');
-        return poster.get(URL.bwin.replace('{day}',day), bwinStep);
+        step();
       }
     }else{
       lt = $('.leftMain .block .blockTit a').eq(0).text();
@@ -401,7 +399,7 @@ module.exports = function (day, next, force){
       }
     });
     printer.done('bwin');
-    saveAll();
+    step();
   };
   var saveAll = function (){
     helper.saveAll(data,ep,printer,{
@@ -459,6 +457,24 @@ module.exports = function (day, next, force){
       }
     }));
   };
+  //抓取步骤
+  var step = helper.step([
+    { code:'odds', func:function(){
+      poster.get(URL.odds.replace('{day}',day), oddsStep);
+    }},
+    { code:'score', func:function(){
+      poster.get(URL.score.replace('{day}',day), scoreStep);
+    }},
+    { code:'live', func:function(){
+      poster.get(URL.live.replace('{day}',day), liveStep);
+    }},
+    { code:'jcOdds', func: jingcaiOddsLoop },
+    { code:'jcTrade', func: jingcaiTradeStart },
+    { code:'bwin', func:function(){
+      poster.get(URL.bwin.replace('{day}',day), bwinStep);
+    }},
+    { code:'save', func: saveAll }
+  ],skip,printer);
 
-  poster.get(URL.odds.replace('{day}',day), oddsStep);
+  step();
 }

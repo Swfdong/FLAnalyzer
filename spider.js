@@ -1,3 +1,7 @@
 var spider    = require('./app/spider/index.js');
 
-spider();
+spider(true,[
+  'jcOdds',
+  'jcTrade',
+  'bwin'
+]);

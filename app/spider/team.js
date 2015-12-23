@@ -167,7 +167,7 @@ module.exports = function (team, next){
           },
           score:{}
         };
-        //没有数据时才保存
+        //为防止冲突，没有数据时才保存
         if(!data.match[obj.mid]){
           data.count++;
           data.match[obj.mid] = obj;
@@ -179,10 +179,12 @@ module.exports = function (team, next){
     printer.done('future');
     preSave();
   };
+
+  //保存数据前的准备工作
   var preSave = function (){
     if(data.count>0){
       saveAll();
-    //如果碰上没有数据的冷门球队
+    //如果碰上没有数据的情况
     }else{
       ep.on('team',function(){
         next()
@@ -190,7 +192,7 @@ module.exports = function (team, next){
       saveTeam(team);
     }
   };
-
+  
   //保存全部数据
   var saveAll = function (){
     helper.saveAll(data,ep,printer,{
@@ -257,7 +259,7 @@ module.exports = function (team, next){
     }));
   };
 
-  //获取球队名字典并开始抓取
+  //生成球队名字典并开始抓取
   if(GAME_NAME_DICT){
     poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
   }else{
