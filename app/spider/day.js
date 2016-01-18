@@ -253,7 +253,7 @@ module.exports = function (day, next, force, skip){
 
   //检查当日数据是否已完成更新
   var checkDone = function (){
-    Match.getMatchesByDate(day, ep.done(function (ms){
+    Match.getByDate(day, ep.done(function (ms){
       var alldone = true;
       ms.forEach(function (m){
         if(!m.done){
@@ -414,7 +414,7 @@ module.exports = function (day, next, force, skip){
   };
   //保存比赛
   var saveMatch = function (obj){
-    Match.getMatchById(obj.mid, ep.done(function (m){
+    Match.getById(obj.mid, ep.done(function (m){
       //如果没有，则创建
       if(!m){
         m = new Match(obj);
@@ -431,7 +431,7 @@ module.exports = function (day, next, force, skip){
     }));
   };
   var saveGame = function (obj){
-    Game.getGameById(obj.gid, ep.done(function (m){
+    Game.getById(obj.gid, ep.done(function (m){
       //如果没有，则创建
       if(!m){
         m = new Game(obj);
@@ -444,7 +444,7 @@ module.exports = function (day, next, force, skip){
     }));
   };
   var saveTeam = function (obj){
-    Team.getTeamById(obj.tid, ep.done(function (m){
+    Team.getById(obj.tid, ep.done(function (m){
       //如果没有，则创建
       if(!m){
         m = new Team(obj);

@@ -14,21 +14,20 @@ var TeamSchema = new Schema({
   updated: {type: Boolean, default: false, index: true }
 });
 
-//查找
-
-TeamSchema.statics.getAllTeams = function (callback){
+//查询
+TeamSchema.statics.getAll = function (callback){
   this.find({}).exec(callback);
 }
 
-TeamSchema.statics.getTeamsNeedUpdate = function (callback){
+TeamSchema.statics.getNeedsUpdate = function (callback){
   this.find({updated:false}).exec(callback);
 }
 
-TeamSchema.statics.getTeamById = function (tid, callback){
+TeamSchema.statics.getById = function (tid, callback){
   this.findOne({tid: tid}, callback);
 }
 
-TeamSchema.statics.getTeamByName = function (name, callback){
+TeamSchema.statics.getByName = function (name, callback){
   this.findOne({name:name}, callback);
 }
 

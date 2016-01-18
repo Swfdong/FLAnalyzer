@@ -11,13 +11,13 @@ var GameSchema = new Schema({
 });
 
 //查找
-GameSchema.statics.getGameById = function (gid, callback){
+GameSchema.statics.getById = function (gid, callback){
   this.findOne({gid: gid}, callback);
 }
-GameSchema.statics.getGameByName = function (Name, callback){
+GameSchema.statics.getByName = function (Name, callback){
   this.findOne({name: name}, callback);
 }
-GameSchema.statics.getAllGames = function (callback){
+GameSchema.statics.getAll = function (callback){
   this.find({}, callback);
 }
 

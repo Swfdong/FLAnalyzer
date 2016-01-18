@@ -214,16 +214,16 @@ MatchSchema.statics.probability = function (o){
   return [da/t, ha/t, hd/t];
 }
 
-//查找
-MatchSchema.statics.getMatchById = function (mid, callback){
+//查询
+MatchSchema.statics.getById = function (mid, callback){
   this.findOne({mid: mid}, callback);
 }
 
-MatchSchema.statics.getMatchesByDate = function (date, callback){
+MatchSchema.statics.getByDate = function (date, callback){
   this.find({'date': date}).sort({time:1}).exec(callback);
 }
 
-MatchSchema.statics.getMatchesByTeam = function (team, query, limit, callback){
+MatchSchema.statics.getByTeam = function (team, query, limit, callback){
   query.time = query.time||Date.now();
   var q;
   if(query.home){
@@ -239,7 +239,7 @@ MatchSchema.statics.getMatchesByTeam = function (team, query, limit, callback){
   this.find(q).lt('time',query.time).limit(limit).sort({time:-1}).exec(callback);
 }
 
-MatchSchema.statics.getMatchesByTeams = function (teams, query, limit, callback){
+MatchSchema.statics.getByTeams = function (teams, query, limit, callback){
   query.time = query.time||Date.now();
   var q = {$or:[{'home.tid':teams[0].tid,'away.tid':teams[1].tid},{'home.tid':teams[1].tid,'away.tid':teams[0].tid}],done:true};
   if(query.game){
@@ -248,7 +248,7 @@ MatchSchema.statics.getMatchesByTeams = function (teams, query, limit, callback)
   this.find(q).lt('time',query.time).limit(limit).sort({time:-1}).exec(callback);
 }
 
-MatchSchema.statics.getMatchesByGame = function (game, limit, callback){
+MatchSchema.statics.getByGame = function (game, limit, callback){
   this.find({'game.name': game}).limit(limit).sort({time:-1}).exec(callback);
 }
 
@@ -264,10 +264,11 @@ MatchSchema.statics.getMatches = function (skip, limit, callback){
   this.find({}).skip(skip).limit(limit).sort({time:-1}).exec(callback);
 }
 
-MatchSchema.statics.getMatchesByQuery = function (query, limit, sort, callback){
+MatchSchema.statics.getByQuery = function (query, limit, sort, callback){
   this.find(query).limit(limit).sort(sort).exec(callback);
 }
-//清空
+
+//删除
 MatchSchema.statics.removeAll = function (callback){
   this.remove({}, callback);
 }

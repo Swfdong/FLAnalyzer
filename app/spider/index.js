@@ -53,7 +53,7 @@ module.exports = function (force,skip,clear){
       tpos   = 0,
       tcount = 0;
   var runTeam = function (){
-    Team.getTeamsNeedUpdate(function (err,ts){
+    Team.getNeedsUpdate(function (err,ts){
       if(err){
         printer.error('mongo_query',err);
         return null;

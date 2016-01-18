@@ -213,7 +213,7 @@ module.exports = function (team, next){
   };
   //保存数据
   var saveMatch = function (obj){
-    Match.getMatchById(obj.mid, ep.done(function (m){
+    Match.getById(obj.mid, ep.done(function (m){
       //只更新没有记录且有比分的比赛
       if(!m&&((obj.done&&obj.score.full)||!obj.done)){
         m = new Match(obj);
@@ -232,7 +232,7 @@ module.exports = function (team, next){
     }));
   };
   var saveGame = function (obj){
-    Game.getGameById(obj.gid, ep.done(function (m){
+    Game.getById(obj.gid, ep.done(function (m){
       //如果没有，则创建
       if(!m){
         m = new Game(obj);
@@ -250,7 +250,7 @@ module.exports = function (team, next){
     }));
   };
   var saveTeam = function (obj){
-    Team.getTeamById(obj.tid, ep.done(function (m){
+    Team.getById(obj.tid, ep.done(function (m){
       if(!m){
         m = new Team(obj);
         m.save(ep.done('team', function (o){
@@ -270,7 +270,7 @@ module.exports = function (team, next){
   if(GAME_NAME_DICT){
     poster.json(URL.matches.replace('{hoa}',hoa).replace('{tid}',team.tid), matchesStep);
   }else{
-    Game.getAllGames(ep.done(function(gs){
+    Game.getAll(ep.done(function(gs){
       GAME_NAME_DICT = {};
       gs.forEach(function (g){
         GAME_NAME_DICT[g.name] = g.gid;
