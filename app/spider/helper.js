@@ -10,7 +10,22 @@ needle.defaults({
     'Accept-Encoding': 'gzip, deflate, sdch'
   }
 });
-
+exports.step = function (steps,skip,printer){
+  return function(){
+    //跳过步骤
+    while(_.indexOf(skip,steps[0].code)!=-1){
+      steps.shift();
+    }
+    //如果剩余步骤
+    if(steps.length>0){
+      var next = steps.shift();
+      if(next.code!=='save'){
+        printer.start(next.code);
+      }
+      next.func();
+    }
+  }
+}
 
 exports.poster = function(printer){
   var handler = function (url,step){
@@ -41,7 +56,6 @@ exports.poster = function(printer){
   }
   return {get:handler,json:jsonHandler};
 }
-
 
 exports.intake = function (data,obj){
   [ ['game','game','gid'],

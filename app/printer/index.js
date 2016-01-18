@@ -1,7 +1,7 @@
 var _ = require('lodash');
 
 var printers = [
-  require('./logger')
+  require('./logger')(console)
 ];
 
 module.exports = require('./logger')(console);

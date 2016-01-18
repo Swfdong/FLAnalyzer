@@ -28,7 +28,7 @@ exports.profit = function (raw){
   for(var i = 0; i<3; i++){
     var q = raw[i]<0?-1:1;
     var s = String(Math.abs(raw[i]));
-    result[i] = 2* (digi[s.length-1]+parseInt(s.substr(0,1)) * factor[s.length-1]) * q;
+    result[i] = (digi[s.length-1]+parseInt(s.substr(0,1)) * factor[s.length-1]) * q;
   }
   return result;
 }
@@ -95,7 +95,7 @@ var guess = function (raw){
 var diff = exports.diff = function (a, b){
   var result = [];
   for(var i = 0;i<a.length;i++){
-    result.push(0.5+(b[i]-a[i])/a[i]);
+    result.push((b[i]-a[i])/a[i]);
   }
   return result;
 }

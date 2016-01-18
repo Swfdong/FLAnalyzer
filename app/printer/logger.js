@@ -136,6 +136,9 @@ module.exports    = function(logger){
       logger.log('成交比例 \t'+jingcaiRatio[0]+'\t'+jingcaiRatio[1]+'\t'+jingcaiRatio[2]);
       line(true);
       logger.log('赔率概率 \t'+jingcaiPb[0]+'\t'+jingcaiPb[1]+'\t'+jingcaiPb[2]);
+      //////////////////////////////////////////////////////////////
+      line(true);
+      logger.log('终场比分 \t'+match.score.full.home,":",match.score.full.away);
     }
   },
   generatorSpider = function (spider_type){
@@ -175,7 +178,9 @@ module.exports    = function(logger){
     },
     team: {
       home:   '主场数据',
-      away:   '客场数据'
+      away:   '客场数据',
+      price:  '球队身价',
+      future: '未来赛事'
     },
     main: {
       day:{
