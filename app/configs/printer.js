@@ -2,8 +2,11 @@ module.exports = {
   dict:{
     COMPANY: {
       average: '平均欧赔',
+      ladbrokes: '立博   ',
       bet365: 'BET365 ',
       macau: '澳门   ',
+      victor: '伟德   ',
+      snai: 'SNAI   ', 
       william: '威廉希尔',
     },
     YAPAN: {

@@ -9,7 +9,9 @@ var time        = require('../utils/time'),
     printer     = require('../printer').spider.day(),
     helper      = require('./helper');
 
-var DICT        = require('../configs/spider').dict;
+var DICT        = require('../configs/spider').dict,
+    COMPANY     = require('../configs/company');
+
 
 var Match       = require('../models/match'),
     Game        = require('../models/game'),
@@ -60,7 +62,7 @@ module.exports = function (day, next, force, skip){
     script = script||'var ouzhiList=null,yapanList=null;';
     eval(script);
     if(ouzhiList&&yapanList){
-      var list = [{l:ouzhiList||{},d:DICT.OUZHI,o:'europe'},{l:yapanList||{},d:DICT.YAPAN,o:'asia'}];
+      var list = [{l:ouzhiList||{},d:COMPANY.europe,o:'europe'},{l:yapanList||{},d:COMPANY.asia,o:'asia'}];
       var tr = $('#main-tbody tr[data-mid]');
       //如果没有数据则跳过
       if(tr.length === 0){
@@ -227,7 +229,7 @@ module.exports = function (day, next, force, skip){
         }
         if($(this).find('td').eq(4).text()==='完'){
           obj.done = true;
-          //如此时没有比分数据（如抓取当日数据的情况），则补完
+          //如此时没有比分数据，则补完
           if(!obj.score){
             var half = $(this).find('td').eq(8).text().split('-');
             obj.score = {full:{},half:{}};
@@ -256,7 +258,7 @@ module.exports = function (day, next, force, skip){
     Match.getByDate(day, ep.done(function (ms){
       var alldone = true;
       ms.forEach(function (m){
-        if(!m.done){
+        if(!m.simple&&!m.done){
           alldone = false;
         }
       });
