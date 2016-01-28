@@ -255,10 +255,10 @@ module.exports = function (day, next, force, skip){
 
   //检查当日数据是否已完成更新
   var checkDone = function (){
-    Match.getByDate(day, ep.done(function (ms){
+    Match.getJingcaiByDate(day, ep.done(function (ms){
       var alldone = true;
       ms.forEach(function (m){
-        if(!m.simple&&!m.done){
+        if(!m.done){
           alldone = false;
         }
       });

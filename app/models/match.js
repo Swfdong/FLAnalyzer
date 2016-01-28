@@ -196,19 +196,6 @@ MatchSchema.methods.isWin = function (team){
   return -1;
 }
 
-//赔付率
-MatchSchema.statics.claimRatio = function (o){
-  return o[0]*o[1]*o[2]/(o[0]*o[1]+o[1]*o[2]+o[0]*o[2]);
-}
-//根据期望算概率
-MatchSchema.statics.probability = function (o){
-  var hd = o[0]*o[1];
-  var da = o[1]*o[2];
-  var ha = o[0]*o[2];
-  var t = hd+da+ha;
-  return [da/t, ha/t, hd/t];
-}
-
 //查询
 MatchSchema.statics.getById = function (mid, callback){
   this.findOne({mid: mid}, callback);
@@ -216,6 +203,10 @@ MatchSchema.statics.getById = function (mid, callback){
 
 MatchSchema.statics.getByDate = function (date, callback){
   this.find({'date': date}).sort({time:1}).exec(callback);
+}
+
+MatchSchema.statics.getJingcaiByDate = function (date, callback){
+  this.find({'date': date, 'simple': false}).sort({time:1}).exec(callback);
 }
 
 MatchSchema.statics.getByTeam = function (team, query, limit, callback){

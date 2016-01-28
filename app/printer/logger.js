@@ -4,6 +4,7 @@ var _           = require('lodash'),
     ansi        = require('ansi'),
     time        = require('util'),
     formatter   = require('../utils/formatter'),
+    converter   = require('../utils/converter'),
     cursor      = ansi(process.stdout);
 
 var DICT        = require('../configs/printer').dict;
@@ -81,8 +82,8 @@ module.exports    = function(logger){
       if(first[0]){
         var ud = updown(data);
         line(true);
-        logger.log(name+' \t'+ud[0]+'\t'+ud[1]+'\t'+ud[2]+'\t'+formatter.fixedNumber(Match.claimRatio(data.now)));
-        logger.log('        \t'+first[0]+'\t'+first[1]+'\t'+first[2]+'\t'+formatter.fixedNumber(Match.claimRatio(data.first)));
+        logger.log(name+' \t'+ud[0]+'\t'+ud[1]+'\t'+ud[2]+'\t'+formatter.fixedNumber(converter..claimRatio(data.now)));
+        logger.log('        \t'+first[0]+'\t'+first[1]+'\t'+first[2]+'\t'+formatter.fixedNumber(converter.claimRatio(data.first)));
       }
     });
   },
@@ -114,7 +115,7 @@ module.exports    = function(logger){
       }
       var jingcaiRatio = match.jingcai.spf.ratio;
       var jingcaiSp = match.jingcai.spf.now;
-      var jingcaiPb = Match.probability(jingcaiSp);
+      var jingcaiPb = converter.probability(jingcaiSp);
       for(var i=0;i<jingcaiRatio.length;i++){
         if(jingcaiRatio[i]-jingcaiPb[i]>=0.15){
           jingcaiRatio[i] = formatter.fixedNumber(jingcaiRatio[i],6).green;
