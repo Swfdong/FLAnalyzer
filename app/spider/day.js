@@ -4,9 +4,8 @@ var _           = require('lodash'),
     eventproxy  = require('eventproxy');
 
 var time        = require('../utils/time'),
-    formatter   = require('../utils/formatter'),
     parser      = require('../utils/parser'),
-    printer     = require('../printer').spider.day(),
+    printer     = require('../printer').spider.day,
     helper      = require('./helper');
 
 var DICT        = require('../configs/spider').dict,
@@ -328,7 +327,7 @@ module.exports = function (day, next, force, skip){
     jingcaiTradeLoop();
   }
   var jingcaiTradeLoop = function (){
-    poster.get(URL.jingcai_trade.replace('{day}',formatter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
+    poster.get(URL.jingcai_trade.replace('{day}',time.tomorrow(day,jd)).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
   };
   var jingcaiTradeStep = function (response) {
     var $ = cheerio.load(response.body);
@@ -364,7 +363,7 @@ module.exports = function (day, next, force, skip){
           data.tradeCount++;
         }
       });
-      printer.progress('jcTrade',data.tradeCount,data.count,' /'+formatter.dateToString(time.tomorrow(day,jd))+'/'+h+'/'+p);
+      printer.progress('jcTrade',data.tradeCount,data.count,' /'+time.tomorrow(day,jd)+'/'+h+'/'+p);
       p++;
       jingcaiTradeLoop();
     }

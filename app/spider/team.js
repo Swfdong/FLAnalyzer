@@ -5,7 +5,7 @@ var needle      = require('needle'),
 
 var time        = require('../utils/time'),
     parser      = require('../utils/parser'),
-    printer     = require('../printer').spider.team(),
+    printer     = require('../printer').spider.team,
     helper      = require('./helper');
 
 var DICT        = require('../configs/spider').dict,
