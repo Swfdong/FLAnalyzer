@@ -147,6 +147,8 @@ module.exports    = function(logger){
         for(var i=0;i<jingcaiSp.length;i++){
           if(match.jingcai[type].results){
             jingcaiSp[i] = (match.jingcai[type].results[i]?String(jingcaiSp[i]).inverse:jingcaiSp[i]).column();
+          }else{
+            jingcaiSp[i] = jingcaiSp[i].column();
           }
         }
         jingcaiSp.push(converter.claimRatio(match.jingcai[type].now).column());
@@ -336,6 +338,7 @@ module.exports    = function(logger){
         bwinProfits(match);
         jingcaiProfits(match);
         scoreAndPredict(match);
+        //scoreBanner(match);
         emptyLine();
       }
     },common),

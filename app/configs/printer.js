@@ -4,7 +4,7 @@ module.exports = {
   COLUMN_SCORE: 4,
   COLUMN_HEADER: 14,
   COLUMN_PANKOU: 20,
-  COLUMN_YAPAN_LEFT: 3,
+  COLUMN_YAPAN_LEFT: 4,
   PANKOU: {
     '-0.25':  '平手/半球',
     '-0.5':   '半球',
