@@ -4,12 +4,13 @@ var _           = require('lodash'),
     eventproxy  = require('eventproxy');
 
 var time        = require('../utils/time'),
-    formatter   = require('../utils/formatter'),
     parser      = require('../utils/parser'),
-    printer     = require('../printer').spider.day(),
+    printer     = require('../printer').spider.day,
     helper      = require('./helper');
 
-var DICT        = require('../configs/spider').dict;
+var DICT        = require('../configs/spider').dict,
+    COMPANY     = require('../configs/company');
+
 
 var Match       = require('../models/match'),
     Game        = require('../models/game'),
@@ -60,7 +61,7 @@ module.exports = function (day, next, force, skip){
     script = script||'var ouzhiList=null,yapanList=null;';
     eval(script);
     if(ouzhiList&&yapanList){
-      var list = [{l:ouzhiList||{},d:DICT.OUZHI,o:'europe'},{l:yapanList||{},d:DICT.YAPAN,o:'asia'}];
+      var list = [{l:ouzhiList||{},d:COMPANY.europe,o:'europe'},{l:yapanList||{},d:COMPANY.asia,o:'asia'}];
       var tr = $('#main-tbody tr[data-mid]');
       //如果没有数据则跳过
       if(tr.length === 0){
@@ -227,7 +228,7 @@ module.exports = function (day, next, force, skip){
         }
         if($(this).find('td').eq(4).text()==='完'){
           obj.done = true;
-          //如此时没有比分数据（如抓取当日数据的情况），则补完
+          //如此时没有比分数据，则补完
           if(!obj.score){
             var half = $(this).find('td').eq(8).text().split('-');
             obj.score = {full:{},half:{}};
@@ -253,7 +254,7 @@ module.exports = function (day, next, force, skip){
 
   //检查当日数据是否已完成更新
   var checkDone = function (){
-    Match.getByDate(day, ep.done(function (ms){
+    Match.getJingcaiByDate(day, ep.done(function (ms){
       var alldone = true;
       ms.forEach(function (m){
         if(!m.done){
@@ -326,7 +327,7 @@ module.exports = function (day, next, force, skip){
     jingcaiTradeLoop();
   }
   var jingcaiTradeLoop = function (){
-    poster.get(URL.jingcai_trade.replace('{day}',formatter.dateToString(time.tomorrow(day,jd))).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
+    poster.get(URL.jingcai_trade.replace('{day}',time.tomorrow(day,jd)).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
   };
   var jingcaiTradeStep = function (response) {
     var $ = cheerio.load(response.body);
@@ -362,7 +363,7 @@ module.exports = function (day, next, force, skip){
           data.tradeCount++;
         }
       });
-      printer.progress('jcTrade',data.tradeCount,data.count,' /'+formatter.dateToString(time.tomorrow(day,jd))+'/'+h+'/'+p);
+      printer.progress('jcTrade',data.tradeCount,data.count,' /'+time.tomorrow(day,jd)+'/'+h+'/'+p);
       p++;
       jingcaiTradeLoop();
     }

@@ -1,7 +1,9 @@
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
+var _        = require('lodash'),
+    mongoose = require('mongoose'),
+    COMPANY  = require('../configs/company'),
+    Schema   = mongoose.Schema;
 
-var MatchSchema = new Schema({
+var SchemaProto = {
   //是否为简单场次（简单场次用于记录未来赛事和早期赛事，可能会缺少部分赔率数据、红黄牌数据，仅用作胜负关系参考）
   simple: { type: Boolean, default: false },
   //赛事
@@ -68,36 +70,7 @@ var MatchSchema = new Schema({
   bwin: [ Number ],
   
   //各家赔率
-  odds:{
-    europe:{
-      average:{
-        first:[ Number ],
-        now:[ Number ]
-      },
-      bet365:{
-        first:[ Number ],
-        now:[ Number ]
-      },
-      macau:{
-        first:[ Number ],
-        now:[ Number ]
-      },
-      william:{
-        first:[ Number ],
-        now:[ Number ]
-      }
-    },
-    asia:{
-      bet365:{
-        first:[ Number ],
-        now:[ Number ]
-      },
-      macau:{ 
-        first:[ Number ],
-        now:[ Number ]
-      }
-    }
-  },
+  odds:{},
   //赛果
   score:{
     full:{
@@ -120,7 +93,20 @@ var MatchSchema = new Schema({
       away: { type: Number }
     }
   }
+};
+
+//注入博彩公司列表
+_.forEach(COMPANY,function (list,type){
+  SchemaProto.odds[type] = {};
+  list.forEach(function (cpy){
+    SchemaProto.odds[type][cpy.name] = {
+      first: [Number],
+      now: [Number]
+    };
+  });
 });
+
+var MatchSchema = new Schema(SchemaProto);
 
 //虚拟属性
 ['spf','rqspf'].forEach(function (jcType){
@@ -146,7 +132,7 @@ var MatchSchema = new Schema({
     }
     return undefined;
   });
-  //根据比分计算赛果
+  //根据比分计算赛果数组
   MatchSchema.virtual('jingcai.'+jcType+'.results').get(function(){
     if(this.score.full.home !== undefined){
       var o = { home:this.score.full.home, away:this.score.full.away };
@@ -162,6 +148,7 @@ var MatchSchema = new Schema({
     }
     return undefined;
   });
+  //根据比分计算赛果（3/1/0）
   MatchSchema.virtual('jingcai.'+jcType+'.result').get(function(){
     if(this.score.full.home !== undefined){
       var o = { home:this.score.full.home, away:this.score.full.away };
@@ -178,6 +165,14 @@ var MatchSchema = new Schema({
     return undefined;
   });
 });
+
+//赛果短路径
+['result','results'].forEach(function (key){
+  MatchSchema.virtual(key).get(function(){
+    return this.jingcai.spf[key];
+  });
+});
+
 
 //是否为主队
 MatchSchema.methods.homeOrAway = function (team){
@@ -201,19 +196,6 @@ MatchSchema.methods.isWin = function (team){
   return -1;
 }
 
-//赔付率
-MatchSchema.statics.claimRatio = function (o){
-  return o[0]*o[1]*o[2]/(o[0]*o[1]+o[1]*o[2]+o[0]*o[2]);
-}
-//根据期望算概率
-MatchSchema.statics.probability = function (o){
-  var hd = o[0]*o[1];
-  var da = o[1]*o[2];
-  var ha = o[0]*o[2];
-  var t = hd+da+ha;
-  return [da/t, ha/t, hd/t];
-}
-
 //查询
 MatchSchema.statics.getById = function (mid, callback){
   this.findOne({mid: mid}, callback);
@@ -221,6 +203,10 @@ MatchSchema.statics.getById = function (mid, callback){
 
 MatchSchema.statics.getByDate = function (date, callback){
   this.find({'date': date}).sort({time:1}).exec(callback);
+}
+
+MatchSchema.statics.getJingcaiByDate = function (date, callback){
+  this.find({'date': date, 'simple': false}).sort({time:1}).exec(callback);
 }
 
 MatchSchema.statics.getByTeam = function (team, query, limit, callback){

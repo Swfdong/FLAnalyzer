@@ -5,10 +5,11 @@ var needle      = require('needle'),
 
 var time        = require('../utils/time'),
     parser      = require('../utils/parser'),
-    printer     = require('../printer').spider.team(),
+    printer     = require('../printer').spider.team,
     helper      = require('./helper');
 
-var DICT        = require('../configs/spider').dict;
+var DICT        = require('../configs/spider').dict,
+    COMPANY     = require('../configs/company');
 
 var Match       = require('../models/match'),
     Game        = require('../models/game'),
@@ -97,7 +98,7 @@ module.exports = function (team, next){
       helper.intake(data,obj);
     }
     //抓取赔率完成
-    ep.after('odds', DICT.OUZHI.length, function () {
+    ep.after('odds', COMPANY.europe.length, function () {
       printer.done(DICT.HOA[hoa]);
       //是否主客场都已抓取完毕
       if(hoa ==2){
@@ -108,8 +109,8 @@ module.exports = function (team, next){
       }
     });
     //抓取赔率
-    for(var j = 0; j < DICT.OUZHI.length; j++){
-      poster.json(URL.odds.replace('{cid}',DICT.OUZHI[j].id).replace('{fids}',fids.join(',')), oddsStep(DICT.OUZHI[j]));
+    for(var j = 0; j < COMPANY.europe.length; j++){
+      poster.json(URL.odds.replace('{cid}',COMPANY.europe[j].id).replace('{fids}',fids.join(',')), oddsStep(COMPANY.europe[j]));
     }
   }
   //抓取指定公司的赔率数据
