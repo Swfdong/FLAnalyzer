@@ -317,6 +317,11 @@ module.exports    = function(logger){
   return {
     viewer: _.assign({
       match: function (match){
+        ["home","away"].forEach(function(type){
+          if(match[type].fullname == undefined){
+            match[type].fullname = "";
+          }
+        });
         header(
           time.dateToString(match.time).column(CONFIG.COLUMN_HEADER,'center').dim.grey
           + ''.column(CONFIG.COLUMN_HEADER)
