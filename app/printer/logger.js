@@ -156,6 +156,7 @@ module.exports    = function(logger){
           printHDA('竞彩赔率',jingcaiSp);
         }else{
           var jingcaiRq = match.jingcai.rqspf.rq;
+          jingcaiRq = jingcaiRq === undefined? 0:jingcaiRq;
           printHDA('让球'+('('+jingcaiRq.signed()+')').red,jingcaiSp);
         }
         printHDA('赔率概率'.grey,jingcaiPb.column(),true);
