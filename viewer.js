@@ -13,7 +13,7 @@ var dbconfig    = require('./app/configs/database'),
 var program     = require('commander');
 
 program
-  .version('0.4.0')
+  .version('0.5.0')
   .option('-d, --date [value]', '按日期[value]筛选')
   .option('-g, --game [value]', '按联赛[value]筛选')
   .option('-t, --team [value]', '按球队[value]筛选')

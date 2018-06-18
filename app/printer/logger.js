@@ -1,5 +1,4 @@
 var _           = require('lodash'),
-    util        = require('util'),
     colors      = require('colors'),
     ansi        = require('ansi'),
     time        = require('../utils/time'),
@@ -272,7 +271,7 @@ module.exports    = function(logger){
       var dict = {
         match:  '共%d场比赛',
         team:   '共%d支球队',
-        game:   '共%d场比赛'
+        game:   '共%d种赛事'
       };
       if(dict[type]){
         line(true);

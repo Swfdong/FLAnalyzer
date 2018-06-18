@@ -23,7 +23,7 @@ var URL = {
   score:'http://zx.500.com/jczq/kaijiang.php?d={day}',
   live:'http://live.500.com/?e={day}',
   jingcai_odds:'http://trade.500.com/jczq/inc/readfile.php?step=readpl&zxid={iid}&wtype={type}&date={day}&g=2',
-  jingcai_trade:'http://info.sporttery.cn/basketball/vote/fb_vote.php?&num={day}&type={type}&page={page}',
+  jingcai_trade:'http://i.sporttery.cn/api/fb_match_info/get_lottery_vote/?p_code={type}&f_callback=supportData&b_date={day}&l_id=0&page={page}',
   bwin:'http://www.310win.com/info/match/Betfair.aspx?date={day}'
   
 };
@@ -239,10 +239,10 @@ module.exports = function (day, next, force, skip){
           }
           //红黄牌
           obj.card = {yellow:{},red:{}};
-          obj.card.yellow.home = parser.int($(this).find('td[align=right] span.yellowcard').text())||0;
-          obj.card.yellow.away = parser.int($(this).find('td[align=left] span.yellowcard').text())||0;
-          obj.card.red.home    = parser.int($(this).find('td[align=right] span.redcard').text())||0;
-          obj.card.red.away    = parser.int($(this).find('td[align=left] span.redcard').text())||0;
+          obj.card.yellow.home = parser.int($(this).find('td[align=right] span.yellowcard').text());
+          obj.card.yellow.away = parser.int($(this).find('td[align=left] span.yellowcard').text());
+          obj.card.red.home    = parser.int($(this).find('td[align=right] span.redcard').text());
+          obj.card.red.away    = parser.int($(this).find('td[align=left] span.redcard').text());
         }
         data.home[obj.home.fullname] = obj;
         data.away[obj.away.fullname] = obj;
@@ -318,28 +318,28 @@ module.exports = function (day, next, force, skip){
     printer.done('jcOdds');
     step();
   };
-  //竞彩成交量数据，竞彩官方数据很乱，要从上一天开始抓
+  //竞彩成交量数据，竞彩官方数据有点乱，需要向前、向后多抓一天
   var jingcaiTradeStart = function (){
     h  = 0;
     p  = 1;
     jd = -1;
-    lt = '';
     jingcaiTradeLoop();
   }
   var jingcaiTradeLoop = function (){
-    poster.get(URL.jingcai_trade.replace('{day}',time.tomorrow(day,jd)).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
+    poster.json(URL.jingcai_trade.replace('{day}',time.tomorrow(day,jd)).replace('{type}',DICT.HAD[h].type).replace('{page}',p), jingcaiTradeStep);
   };
-  var jingcaiTradeStep = function (response) {
-    var $ = cheerio.load(response.body);
-    var block = $('.leftMain .block');
-    //当天没有数据或已抓到最后一页
-    if(block.length === 0||$('.leftMain .block .blockTit a').eq(0).text() === lt){
+  var jingcaiTradeStep = function (json) {
+    var match_list = json.result?json.result.votes:[];
+    //如果当天的当页没有数据
+    if(match_list.length === 0){
       var flag = 2;
+      //抓完胜平负抓让球
       if(h<1){
         h++;
         p = 1;
         flag = 1;
         data.tradeCount = 0;
+      //换一天继续抓
       }else if(jd<1){
         jd++;
         h = 0;
@@ -353,13 +353,10 @@ module.exports = function (day, next, force, skip){
         step();
       }
     }else{
-      lt = $('.leftMain .block .blockTit a').eq(0).text();
-      block.each(function(i){
-        var tt = $(this).find('.blockTit a').text().split(' ');
-        var tr = $(this).find('tr:not(.tr1) td .zhichi');
-        var obj= data.shortcut[tt[0]];
+      match_list.forEach(function(d){
+        var obj= data.shortcut[d.num];
         if(obj){
-          obj.jingcai[DICT.HAD[h].name].trade = [parser.int(tr.eq(0).text())||0,parser.int(tr.eq(1).text())||0,parser.int(tr.eq(2).text())||0];
+          obj.jingcai[DICT.HAD[h].name].trade = [parser.int(d.win_num),parser.int(d.draw_num),parser.int(d.lose_num)];
           data.tradeCount++;
         }
       });
