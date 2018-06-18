@@ -1,6 +1,8 @@
 var _           = require('lodash'),
     needle      = require('needle');
 
+var parser      = require('../utils/parser');
+
 needle.defaults({
   open_timeout:2500,
   read_timeout:5000,
@@ -44,9 +46,11 @@ exports.poster = function(printer){
   var jsonHandler = function (url,step){
     handler(url,function (response){
       var result;
+      //修整竞彩成交量数据
+      var body = parser.jsonfix(response.body);
       //解析出错自动重试
       try{
-        result = JSON.parse(response.body);
+        result = JSON.parse(body);
       }catch (err) {
         printer.error('json',err);
         return jsonHandler(url,step);

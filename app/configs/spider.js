@@ -1,5 +1,5 @@
 module.exports = {
-  //first_date: '2015-12-22',
+  //抓取的最早日期
   first_date: '2009-11-17',
   dict:{
     JINGCAI: {

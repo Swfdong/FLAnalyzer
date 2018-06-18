@@ -1,7 +1,7 @@
 {
-  "name": "FLAnalyzer",
-  "description": "FLAnalyzer 是一款基于Node.js的竞彩足球赛事数据采集、分析程序。",
-  "version": "0.3.0",
+  "name": "fl-analyzer",
+  "description": "fl-analyzer 是一款基于Node.js的竞彩足球赛事数据采集、分析程序。",
+  "version": "0.5.0",
   "private": true,
   "author": {
     "name": "Swfdong",

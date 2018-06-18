@@ -8,7 +8,7 @@ var fixFloat = function (number){
 
 var int = exports.int = function (str){
   str = validator.trim(str);
-  return parseInt(str);
+  return parseInt(str)||0;
 }
 
 exports.number = function (str){
@@ -43,7 +43,7 @@ exports.trtd = function (el,tr,td){
 }
 
 exports.date = function (str){
-  return Date.parse(str.replace(/-/g,"/"));
+  return Date.parse(str.replace(/-/g,'/'));
 }
 
 exports.trim = function (str){
@@ -64,4 +64,8 @@ exports.price = function (str){
     return parseInt(str.substring(str.indexOf('€')+2,str.indexOf('万')));
   }
   return 0;
+}
+
+exports.jsonfix = function (str){
+  return str.replace('supportData(','').replace('}});','}}');
 }
